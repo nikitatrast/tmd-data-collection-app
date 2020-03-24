@@ -1,35 +1,40 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:location/location.dart' as loc;
 import 'package:sensors/sensors.dart';
 import 'package:path_provider/path_provider.dart';
+
+import '../models/modes.dart';
+import '../models/sensor_event.dart';
+import '../models/location.dart';
+
 import '../widgets/trip_recorder.dart' show DataRecorder;
 
-import '../modes.dart';
-
-class Event<B> {
-  final DateTime datetime;
-  final B event;
-
-  Event(this.datetime, this.event);
-
-  @override
-  String toString() => '<$datetime, $event>';
-}
-
 class SensorDataRecorder implements DataRecorder {
-  Future<bool> gpsEnabled;
+  ValueNotifier<bool> gpsEnabled;
   loc.Location locationService = loc.Location();
-  StreamSubscription<loc.LocationData> locationStream;
+  StreamSubscription<loc.LocationData> inputLocationStream;
+  StreamController<Location> outputLocationStream;
+
   List<loc.LocationData> locationEvents = [];
   List<Function> locationListeners = [];
 
   StreamSubscription<AccelerometerEvent> accelerationStream;
-  List<Event<AccelerometerEvent>> accelerationEvents = [];
+  List<SensorEvent<AccelerometerEvent>> accelerationEvents = [];
   
-  SensorDataRecorder({Future<bool> gpsAllowed}) {
-    gpsEnabled = resolveGPS(gpsAllowed);
+  SensorDataRecorder({this.gpsEnabled});
+
+  Future<bool> get gpsAllowed async {
+    // busy wait in case the ValueNotifier is not yet ready
+    for (int i = 0; i < 10*1000*1000; ++i) {
+      if (gpsEnabled.value != null)
+        break;
+      else
+        await Future.delayed(Duration(microseconds: 1));
+    }
+    return gpsEnabled.value ?? false;
   }
 
   Future<bool> resolveGPS(Future<bool> gpsAllowed) async {
@@ -45,7 +50,7 @@ class SensorDataRecorder implements DataRecorder {
 
   @override
   Future<bool> locationAvailable() {
-    return gpsEnabled;
+    return gpsAllowed;
   }
 
   @override
@@ -53,15 +58,16 @@ class SensorDataRecorder implements DataRecorder {
     print('[SensorRecorder] startRecording');
     accelerationStream = accelerometerEvents.listen(onNewAcceleration);
 
+    outputLocationStream = StreamController<Location>();
     if (await locationAvailable()) {
-        locationStream = locationService.onLocationChanged().listen(onNewLocation);
+      inputLocationStream = locationService.onLocationChanged().listen(onNewLocation);
     }
   }
 
   @override
   void pauseRecording() {
     print('[SensorRecorder] pauseRecording');
-    locationStream?.pause();
+    inputLocationStream?.pause();
     accelerationStream?.pause();
   }
 
@@ -69,14 +75,24 @@ class SensorDataRecorder implements DataRecorder {
   void stopRecording() {
     print('[SensorRecorder] stopRecording');
     accelerationStream?.cancel();
-    locationStream?.cancel();
+    inputLocationStream?.cancel();
+    outputLocationStream.close();
   }
 
   @override
-  void addLocationListener(Function listener) {
-    print('[SensorRecorder] addLocationListener'
-        ' (already have ${locationListeners.length})');
-    locationListeners.add(listener);
+  Stream<Location> locationStream() {
+    return outputLocationStream.stream;
+  }
+
+  void onNewAcceleration(AccelerometerEvent event) {
+    accelerationEvents.add(SensorEvent(DateTime.now(), event));
+  }
+
+  void onNewLocation(loc.LocationData loc) {
+    locationEvents.add(loc);
+    outputLocationStream.add(
+        Location(loc.latitude, loc.longitude, loc.altitude)
+    );
   }
 
   @override
@@ -87,7 +103,7 @@ class SensorDataRecorder implements DataRecorder {
     var accelFile = getFile(travelMode, 'accelerometer', timestamp);
     accelerationEvents.fold(accelFile, (file, e) async {
       return (await file).writeAsString(
-        '${e.datetime.millisecondsSinceEpoch}'
+        '${e.time.millisecondsSinceEpoch}'
             '${e.event.x}, ${e.event.y}, ${e.event.z}'
       );
     });
@@ -115,17 +131,6 @@ class SensorDataRecorder implements DataRecorder {
     assert(filename[0] == '/'); // routes start with a leading '/'
     var file = File(dataDir.path + '$filename.csv');
     return file;
-  }
-
-  void onNewAcceleration(AccelerometerEvent event) {
-    accelerationEvents.add(Event(DateTime.now(), event));
-  }
-
-  void onNewLocation(loc.LocationData loc) {
-    locationEvents.add(loc);
-    for (var listener in locationListeners) {
-      listener(loc.latitude, loc.longitude, loc.altitude);
-    }
   }
 
   Future<bool> enableLocationService() async {

@@ -11,6 +11,16 @@ enum Modes {
   train
 }
 
+const List<Modes> enabledModes = [
+  Modes.walk,
+  Modes.bike,
+  Modes.motorcycle,
+  Modes.car,
+  Modes.bus,
+  Modes.metro,
+  Modes.train
+];
+
 extension ModeText on Modes {
   String get text {
     switch (this) {

@@ -1,7 +1,9 @@
 import 'dart:io';
-import 'package:accelerometertest/widgets/data_explorer.dart';
 import 'package:path_provider/path_provider.dart';
-import '../widgets/data_explorer.dart' show DataExplorerBackend, ExplorerItem;
+
+import '../models/explorer_item.dart';
+
+import '../widgets/data_explorer.dart' show DataExplorerBackend;
 
 class FileSystemExplorerBackend implements DataExplorerBackend {
   Future<Directory> get dataDirectory async {
@@ -28,8 +30,6 @@ class FileSystemExplorerBackend implements DataExplorerBackend {
   @override
   Future<List<ExplorerItem>> getItems() async {
     var items = (await dataDirectory).listSync();
-    //note: could speed this up by first requesting
-    //      async stats, then awaiting them
     return items.map((item) {
       var stats = item.statSync();
       return ExplorerItem(

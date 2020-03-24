@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:accelerometertest/modes.dart';
+import '../models/modes.dart';
 
 class TripSelector extends StatelessWidget {
   final List<Modes> modes;

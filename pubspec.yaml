@@ -23,17 +23,15 @@ dependencies:
   intl: any
   slugify: any
   flutter_map: any
-  geolocator: ^5.3.0
+  # geolocator: ^5.3.0
   location: ^2.5.0
   path_provider: any
   shared_preferences: any
-  flutter_spinkit: "^2.1.0"
-  progress_dialog: ^1.2.1
-  connectivity: any
+  # progress_dialog: ^1.2.1
+  # connectivity: any
+  http: any
   filesize: any
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  provider: any
   cupertino_icons: ^0.1.2
 
 dev_dependencies:

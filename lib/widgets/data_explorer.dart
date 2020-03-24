@@ -1,17 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:filesize/filesize.dart';
-
-class ExplorerItem {
-  final name;
-  final datetime;
-  final size;
-  final data;
-
-  ExplorerItem(this.name, this.datetime, this.size, this.data);
-}
+import '../models/explorer_item.dart';
 
 abstract class DataExplorerBackend {
   Future<List<ExplorerItem>> getItems();
@@ -33,6 +22,7 @@ class DataExplorerState extends State<DataExplorer> {
 
   @override
   void initState() {
+    super.initState();
     widget.backend.getItems().then((items) =>
       setState(() => this.items = items)
     );
@@ -162,9 +152,7 @@ class DataExplorerState extends State<DataExplorer> {
         SizedBox(
           width: 50,
           height: 50,
-          child:SpinKitCircle(
-              color: Theme.of(context).primaryColor
-          )
+          child:CircularProgressIndicator()
         )
       ]
     );

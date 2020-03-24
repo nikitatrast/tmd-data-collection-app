@@ -1,45 +1,62 @@
-import 'package:accelerometertest/backends/sensor_data_recorder.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'backends/data_explorer_backend.dart';
+import 'backends/preferences_provider.dart';
+import 'backends/sensor_data_recorder.dart';
+import 'backends/synchronization_manager.dart';
+
+import 'models/modes.dart';
 
 import 'widgets/trip_selector.dart';
 import 'widgets/settings.dart';
 import 'widgets/data_explorer.dart';
 import 'widgets/trip_recorder.dart';
 
-import 'backends/settings_backend.dart';
-import 'backends/data_explorer_backend.dart';
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  var prefs = PreferencesProvider();
+  var sync = SyncManager(prefs.cellularNetwork);
 
-import 'modes.dart';
-
-void main() => runApp(MyApp());
-
-const List<Modes> enabledModes = [
-  Modes.walk,
-  Modes.bike,
-  Modes.motorcycle,
-  Modes.car,
-  Modes.bus,
-  Modes.metro,
-  Modes.train
-];
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(
+          value: prefs.gpsLocation),
+      ChangeNotifierProvider.value(
+          value: prefs.cellularNetwork),
+      ChangeNotifierProvider.value(
+          value: sync.status),
+      Provider<DataExplorerBackend>(
+          create: (_) => FileSystemExplorerBackend()),
+      Provider<SensorDataRecorder>(
+          create: (_) => SensorDataRecorder(gpsEnabled: prefs.gpsLocation)),
+    ],
+    child: MyApp(),
+  ));
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     print('[App] build');
+    /*
+    For consistency: in this tree, only instanciate widgets and Consumer<T>,
+    Data Providers or backends should by instanciated in main() through
+    Provider<T> mechanism.
+     */
     return MaterialApp(
         title: 'TMD data collection',
         theme: ThemeData(primarySwatch: Colors.blue),
         initialRoute: '/selection',
         routes: {
-          for (var m in enabledModes)
-            m.route: (context) => TripRecorder(
-                  mode: m,
-                  recorderBuilder: () => SensorDataRecorder(
-                    gpsAllowed: SharedPrefsSettingsBackend().getGPSValue()
+          for (var mode in enabledModes)
+            mode.route: (context) => Consumer<SensorDataRecorder>(
+                  builder: (context, recorder, _) => TripRecorder(
+                    mode: mode,
+                    recorderBuilder: () => recorder,
+                    exit: () => Navigator.of(context)
+                        .pushReplacementNamed('/selection'),
                   ),
-                  exit: () =>
-                      Navigator.of(context).pushReplacementNamed('/selection'),
                 ),
           '/selection': (context) => TripSelector(
                 modes: enabledModes,
@@ -52,11 +69,10 @@ class MyApp extends StatelessWidget {
                     Navigator.of(context).pushNamed('/settings'),
               ),
           '/settings': (context) => Settings(
-                SharedPrefsSettingsBackend(),
                 () => Navigator.of(context).pushNamed('/data-explorer'),
               ),
-          '/data-explorer': (context) =>
-              DataExplorer(FileSystemExplorerBackend())
+          '/data-explorer': (context) => Consumer<DataExplorerBackend>(
+              builder: (context, backend, _) => DataExplorer(backend))
         });
   }
 }

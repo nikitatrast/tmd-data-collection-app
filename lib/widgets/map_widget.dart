@@ -1,49 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong/latlong.dart';
-
-class LocationProvider {
-  List<MapWidgetState> listeners = [];
-
-  void addListener(MapWidgetState listener) {
-    listeners.add(listener);
-  }
-
-  void removeListener(MapWidgetState listener) {
-    listeners.remove(listener);
-  }
-
-  void put(double latitude, double longitude, double altitude) {
-    listeners.forEach((l) => l.newLocation(latitude, longitude, altitude));
-  }
-}
-
-abstract class LocationStreamListener {
-  void newLocation(double latitude, double longitude, double altitude);
-}
+import '../models/location.dart';
 
 class MapWidget extends StatefulWidget {
-  final LocationProvider stream;
+  final Stream<Location> stream;
 
   MapWidget(this.stream);
 
   @override
-  State<MapWidget> createState() => MapWidgetState(stream);
+  State<MapWidget> createState() => MapWidgetState();
 }
 
 enum ViewModes { trip, center, free }
 
-class MapWidgetState extends State<MapWidget>
-    with LocationStreamListener, WidgetsBindingObserver {
-  final LocationProvider locationStream;
+class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
   MapController mapController;
   LatLngBounds bounds;
   List<Marker> markers;
   LatLng lastLocation;
   bool inForeground;
   ViewModes viewMode;
+  StreamSubscription subscription;
 
-  MapWidgetState(this.locationStream);
+  MapWidgetState();
 
   void initState() {
     super.initState();
@@ -54,14 +36,16 @@ class MapWidgetState extends State<MapWidget>
     bounds = LatLngBounds();
     markers = [];
     this.inForeground = true;
-    locationStream.addListener(this);
+    subscription = widget.stream.listen((v) =>
+        newLocation(v.latitude, v.longitude, v.altitude)
+    );
   }
 
   void dispose() {
     super.dispose();
     print('[MapWidget] dispose()');
     WidgetsBinding.instance.removeObserver(this);
-    locationStream.removeListener(this);
+    subscription.cancel();
   }
 
   @override
@@ -195,7 +179,6 @@ class MapWidgetState extends State<MapWidget>
     );
   }
 
-  @override
   void newLocation(double latitude, double longitude, double altitude) {
     print('[MapWidget] location received: $latitude, $longitude');
 

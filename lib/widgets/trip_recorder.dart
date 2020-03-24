@@ -1,16 +1,26 @@
 import 'dart:async';
 
+import 'package:accelerometertest/models/preferences.dart';
 import 'package:flutter/material.dart';
-import 'package:accelerometertest/modes.dart';
+import 'package:provider/provider.dart';
+import '../models/modes.dart';
+import '../models/location.dart';
 import 'package:accelerometertest/widgets/map_widget.dart';
 
 abstract class DataRecorder {
   void startRecording();
+
   void pauseRecording();
+
   void stopRecording();
+
   Future<bool> persistData(Modes travelMode);
-  void addLocationListener(Function listener);
+
+  Stream<Location> locationStream();
+
   Future<bool> locationAvailable();
+
+
 }
 
 class TripRecorder extends StatefulWidget {
@@ -31,7 +41,6 @@ class TripRecorder extends StatefulWidget {
 class TripRecorderState extends State<TripRecorder> {
   DataRecorder recorder;
   DateTime createdTime;
-  Widget mainPane;
 
   @override
   void initState() {
@@ -39,19 +48,6 @@ class TripRecorderState extends State<TripRecorder> {
     recorder = widget.recorderBuilder();
     recorder.startRecording();
     createdTime = DateTime.now();
-    checkGPS();
-  }
-
-  void checkGPS() async {
-    var ok = await recorder.locationAvailable();
-    if (ok) {
-      var stream = LocationProvider();
-      recorder.addLocationListener(stream.put);
-      mainPane = MapWidget(stream);
-    } else {
-      mainPane = noGPSPane();
-    }
-    setState(() {});
   }
 
   Future<bool> onSave() async {
@@ -68,24 +64,26 @@ class TripRecorderState extends State<TripRecorder> {
     return Column(mainAxisSize: MainAxisSize.max, children: [
       Container(
           padding: EdgeInsets.only(top: 20, bottom: 10),
-          child: Text(
-              'Enregistrement en cours',
+          child: Text('Enregistrement en cours',
               style: TextStyle(fontSize: 30.0))),
       Container(
           padding: EdgeInsets.only(bottom: 20),
           child: Text(
               'Début du trajet : ' +
-                  createdTime
-                      .toString()
-                      .split('.')
-                      .first
-                      .split(' ')
-                      .last,
+                  createdTime.toString().split('.').first.split(' ').last,
               style: TextStyle(fontSize: 20.0))),
-      Expanded(
-          child: Center(
-              child: Icon(widget.mode.iconData, size: 200))),
+      Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
     ]);
+  }
+
+  Widget mainPane(BuildContext context) {
+    return Consumer<GPSLocationAllowed>(builder: (context, gpsAllowed, _) {
+      if (gpsAllowed.value != null && gpsAllowed.value) {
+        return MapWidget(recorder.locationStream());
+      } else {
+        return noGPSPane();
+      }
+    });
   }
 
   @override
@@ -109,7 +107,7 @@ class TripRecorderState extends State<TripRecorder> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: mainPane ?? Container(),
+                    child: mainPane(context),
                   ),
                   ButtonBar(
                     children: <Widget>[
