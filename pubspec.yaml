@@ -23,16 +23,15 @@ dependencies:
   intl: any
   slugify: any
   flutter_map: any
-  # geolocator: ^5.3.0
   location: ^2.5.0
   path_provider: any
   shared_preferences: any
-  # progress_dialog: ^1.2.1
-  # connectivity: any
+  connectivity: any
   http: any
   filesize: any
   provider: any
   cupertino_icons: ^0.1.2
+  csv: 4.0.3
 
 dev_dependencies:
   flutter_test:

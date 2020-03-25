@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/synchronization_status.dart';
+import '../models.dart' show SyncStatus;
 
 class SyncStatusWidget extends StatelessWidget {
   @override
@@ -18,28 +18,29 @@ class SyncStatusWidget extends StatelessWidget {
 
   Widget makeChild(SyncStatus status) {
     switch (status) {
-      case SyncStatus.waiting:
+      case SyncStatus.awaitingNetwork:
         return ListTile(
             title: Text("Synchronisation : en attente du réseau"),
-            //subtitle: Text('Synchronisation en pause'),
+            trailing: Icon(Icons.cloud_off, color: Colors.red),
+            onTap: null);
+      case SyncStatus.serverDown:
+        return ListTile(
+            title: Text("Synchronisation : serveur indisponible"),
             trailing: Icon(Icons.cloud_off, color: Colors.red),
             onTap: null);
       case SyncStatus.done:
         return ListTile(
             title: Text("Synchronisation : terminée"),
-            //subtitle: Text('Toutes les données ont été synchronisées'),
             trailing: Icon(Icons.cloud_done, color: Colors.green),
             onTap: null);
       case SyncStatus.uploading:
         return ListTile(
             title: Text("Synchronisation : en cours"),
-            //subtitle: Text('Synchronisation en cours'),
             trailing: Icon(Icons.cloud_upload, color: Colors.green),
             onTap: null);
       default:
         return ListTile(
             title: Text("Synchronisation : état inconnu"),
-            //subtitle: Text('Synchronisation en cours'),
             trailing: SizedBox(
                 width: 30,
                 height: 30,

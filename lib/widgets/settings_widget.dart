@@ -1,13 +1,13 @@
-import 'package:accelerometertest/models/preferences.dart';
+import '../models.dart' show GPSLocationAllowed, CellularNetworkAllowed;
 
 import 'package:flutter/material.dart';
-import 'loading_switch_tile.dart';
-import 'synchronization_status.dart';
+import 'loading_switch_tile_widget.dart';
+import 'sync_status_widget.dart';
 
-class Settings extends StatelessWidget {
+class SettingsWidget extends StatelessWidget {
   final Function dataExplorer;
 
-  Settings(this.dataExplorer);
+  SettingsWidget(this.dataExplorer);
 
   @override
   Widget build(BuildContext context) {

@@ -1,16 +1,12 @@
 import 'dart:async';
 
-import 'package:accelerometertest/models/preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/modes.dart';
-import '../models/location.dart';
-import 'package:accelerometertest/widgets/map_widget.dart';
+import '../models.dart';
+import 'map_widget.dart';
 
-abstract class DataRecorder {
+abstract class TripRecorderBackend {
   void startRecording();
-
-  void pauseRecording();
 
   void stopRecording();
 
@@ -19,27 +15,25 @@ abstract class DataRecorder {
   Stream<Location> locationStream();
 
   Future<bool> locationAvailable();
-
-
 }
 
-class TripRecorder extends StatefulWidget {
+class TripRecorderWidget extends StatefulWidget {
   final Modes mode;
   final Function exit;
   final Function recorderBuilder;
 
-  TripRecorder({
+  TripRecorderWidget({
     @required this.mode,
     @required this.exit,
     @required this.recorderBuilder,
   });
 
   @override
-  State<StatefulWidget> createState() => TripRecorderState();
+  State<StatefulWidget> createState() => TripRecorderWidgetState();
 }
 
-class TripRecorderState extends State<TripRecorder> {
-  DataRecorder recorder;
+class TripRecorderWidgetState extends State<TripRecorderWidget> {
+  TripRecorderBackend recorder;
   DateTime createdTime;
 
   @override
@@ -126,7 +120,7 @@ class TripRecorderState extends State<TripRecorder> {
                 ])));
   }
 
-  cancelDialog(BuildContext context) {
+  void cancelDialog(BuildContext context) {
     Widget cancelButton = FlatButton(
       child: Text("Non"),
       onPressed: () => Navigator.of(context).pop(),
@@ -155,7 +149,7 @@ class TripRecorderState extends State<TripRecorder> {
     );
   }
 
-  saveAndExit(BuildContext context) {
+  void saveAndExit(BuildContext context) {
     AlertDialog alert = AlertDialog(
       title: Text("Enregistrement"),
       content: Text("Enregistrement des données..."),

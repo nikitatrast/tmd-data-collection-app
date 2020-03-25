@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/preferences.dart';
+import '../models.dart' show CellularNetworkAllowed, GPSLocationAllowed;
 
 class PreferencesProvider {
   var cellularNetwork = CellularNetworkAllowed();
