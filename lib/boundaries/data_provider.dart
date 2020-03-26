@@ -12,7 +12,15 @@ class DataProvider implements ExplorerBackend {
     print('[DataProvider] available items:');
     print('\t' + fullItems.join('\n\t'));
     print('---------------------------');
-    return items.map(_makeTrip).toList();
+    var trips = <StoredTrip>[];
+    for (var item in items) {
+      try {
+        trips.add(_makeTrip(item));
+      } on Exception {
+        print('[DataProvider] Skipped ${item.path}');
+      }
+    }
+    return trips;
   }
 
   Future<bool> delete(Trip t) async {
@@ -140,7 +148,7 @@ StoredTrip _makeTrip(FileSystemEntity item) {
   var files = dir.listSync();
   var sensors = files.map((e) => e.path.split('/').last.split('.').first);
   var sizes = files.map((e) => e.statSync().size);
-  result.sizeOnDisk = sizes.reduce((a,b) => a + b);
+  result.sizeOnDisk = (sizes.isEmpty) ? 0 : sizes.reduce((a,b) => a + b);
   result.sensorsData = Map.fromEntries(sensors.map(
           (s) => MapEntry(_sensorFromName[s], null)
   ));

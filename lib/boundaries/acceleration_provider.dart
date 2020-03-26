@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'package:accelerometertest/boundaries/sensor_data_provider.dart';
+import '../backends/sensor_data_provider.dart';
 import 'package:sensors/sensors.dart' as plugin;
-import '../models.dart' show Acceleration, Sensor;
+import '../models.dart' show Acceleration;
 
 class AccelerationProvider implements SensorDataProvider {
-  Future<bool> start() => Future.value(true);
-
   Stream<Acceleration> get stream {
     return plugin.accelerometerEvents.map((event) => Acceleration(
       time: DateTime.now(),
@@ -14,6 +12,4 @@ class AccelerationProvider implements SensorDataProvider {
       z: event.z,
     ));
   }
-
-  Sensor get sensor => Sensor.accelerometer;
 }

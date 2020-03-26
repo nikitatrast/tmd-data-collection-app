@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models.dart';
-import 'map_widget.dart';
+import '../widgets/map_widget.dart';
+import '../widgets/gps_auth_tile.dart';
 
 abstract class TripRecorderBackend {
   void startRecording();
@@ -13,8 +15,6 @@ abstract class TripRecorderBackend {
   Future<bool> persistData(Modes travelMode);
 
   Stream<Location> locationStream();
-
-  Future<bool> locationAvailable();
 }
 
 class TripRecorderWidget extends StatefulWidget {
@@ -67,17 +67,23 @@ class TripRecorderWidgetState extends State<TripRecorderWidget> {
                   createdTime.toString().split('.').first.split(' ').last,
               style: TextStyle(fontSize: 20.0))),
       Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
+      GpsAuthTile(),
     ]);
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<GPSLocationAllowed>(builder: (context, gpsAllowed, _) {
-      if (gpsAllowed.value != null && gpsAllowed.value) {
-        return MapWidget(recorder.locationStream());
-      } else {
-        return noGPSPane();
-      }
-    });
+    return Consumer<GPSAuth>(
+        builder: (context, auth, _) {
+          if (auth.value == true) {
+            return Column(children: [
+              Expanded(child: MapWidget(recorder.locationStream())),
+              GpsAuthTile(),
+            ]);
+          } else {
+            return noGPSPane();
+          }
+        }
+    );
   }
 
   @override

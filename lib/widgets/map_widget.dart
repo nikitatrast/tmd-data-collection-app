@@ -180,7 +180,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
   }
 
   void newLocation(double latitude, double longitude, double altitude) {
-    print('[MapWidget] location received: $latitude, $longitude');
+    //print('[MapWidget] location received: $latitude, $longitude');
 
     if (lastLocation != null &&
         (((lastLocation.latitude - latitude).abs() < 0.0001) ||

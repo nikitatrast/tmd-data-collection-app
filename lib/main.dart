@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'boundaries/acceleration_provider.dart';
+import 'boundaries/battery.dart';
 import 'boundaries/data_provider.dart';
 import 'boundaries/location_provider.dart';
 import 'boundaries/preferences_provider.dart';
 import 'backends/trip_recorder_backend.dart';
 import 'backends/sync_manager.dart';
+import 'backends/gps_auth.dart';
 
 import 'models.dart' show ModeRoute, enabledModes, Sensor;
 
@@ -21,20 +23,23 @@ void main() async {
   var prefs = PreferencesProvider();
   var sync = SyncManager(prefs.cellularNetwork);
   var storage = DataProvider();
+  var battery = BatteryNotifier();
+  var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
   var sensorDataProviders = {
-    Sensor.gps: LocationProvider(),
+    Sensor.gps: LocationProvider(gpsAuth),
     Sensor.accelerometer: AccelerationProvider()
   };
 
   runApp(MultiProvider(
     providers: [
-      ChangeNotifierProvider.value(value: prefs.gpsLocation),
+      ChangeNotifierProvider.value(value: gpsAuth),
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
+      ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: sync.status),
       Provider<ExplorerBackend>.value(value: storage),
       Provider<TripRecorderBackendImpl>(
           create: (_) => TripRecorderBackendImpl(
-              prefs.gpsLocation, sensorDataProviders, storage)),
+              sensorDataProviders, gpsAuth, storage)),
     ],
     child: MyApp(),
   ));
@@ -55,6 +60,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
         title: 'TMD data collection',
         theme: ThemeData(primarySwatch: Colors.blue),
+        //initialRoute: '/test-location',
         initialRoute: '/selection',
         routes: {
           for (var mode in enabledModes)
@@ -80,7 +86,7 @@ class MyApp extends StatelessWidget {
                 () => Navigator.of(context).pushNamed('/data-explorer'),
               ),
           '/data-explorer': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) => ExplorerWidget(backend))
+              builder: (context, backend, _) => ExplorerWidget(backend)),
         });
   }
 }

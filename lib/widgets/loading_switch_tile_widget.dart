@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 class LoadingSwitchTile<T extends ValueNotifier> extends StatelessWidget {
   final title;
   final subtitle;
+  final options;
   final secondary;
 
   LoadingSwitchTile({
     this.title,
     this.subtitle,
+    this.options,
     this.secondary,
   });
 
@@ -30,7 +32,9 @@ class LoadingSwitchTile<T extends ValueNotifier> extends StatelessWidget {
         } else {
           return SwitchListTile(
             title: this.title,
-            subtitle: this.subtitle,
+            subtitle: (this.options == null)
+                ? this.subtitle
+                : (notifier.value ? options.last : options.first),
             secondary: this.secondary,
             value: notifier.value,
             onChanged: (value) => notifier.value = value,

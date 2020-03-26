@@ -69,15 +69,49 @@ extension ModeIcon on Modes {
   }
 }
 
-const List<Modes> enabledModes = [
-  Modes.walk,
-  Modes.bike,
-  Modes.motorcycle,
-  Modes.car,
-  Modes.bus,
-  Modes.metro,
-  Modes.train
-];
+const List<Modes> enabledModes = Modes.values;
+
+enum GPSPref {
+  always,
+  whenCharging,
+  batteryLevel20,
+  batteryLevel40,
+  batteryLevel60,
+  batteryLevel80,
+  never
+}
+
+extension GPSPrefExt on GPSPref {
+  String get value => (const {
+    GPSPref.always: 'always',
+    GPSPref.batteryLevel20: 'batteryLevel20',
+    GPSPref.batteryLevel40: 'batteryLevel40',
+    GPSPref.batteryLevel60: 'batteryLevel60',
+    GPSPref.batteryLevel80: 'batteryLevel80',
+    GPSPref.whenCharging: 'whenCharging',
+    GPSPref.never: 'never',
+  })[this];
+
+  String get displayName => (const {
+    GPSPref.always: 'Toujours',
+    GPSPref.whenCharging: 'En charge',
+    GPSPref.batteryLevel20: 'Batterie > 20%',
+    GPSPref.batteryLevel40: 'Batterie > 40%',
+    GPSPref.batteryLevel60: 'Batterie > 60%',
+    GPSPref.batteryLevel80: 'Batterie > 80%',
+    GPSPref.never: 'Jamais'
+  })[this];
+
+  IconData get icon => (const {
+    GPSPref.always: Icons.done,
+    GPSPref.batteryLevel20: Icons.battery_full,
+    GPSPref.batteryLevel40: Icons.battery_full,
+    GPSPref.batteryLevel60: Icons.battery_full,
+    GPSPref.batteryLevel80: Icons.battery_full,
+    GPSPref.whenCharging: Icons.battery_charging_full,
+    GPSPref.never: Icons.not_interested,
+  })[this];
+}
 
 class Acceleration {
   DateTime time;
@@ -114,8 +148,8 @@ class CellularNetworkAllowed extends ValueNotifier<bool> {
   CellularNetworkAllowed() : super(null);
 }
 
-class GPSLocationAllowed extends ValueNotifier<bool> {
-  GPSLocationAllowed() : super(null);
+class GPSPrefNotifier extends ValueNotifier<GPSPref> {
+  GPSPrefNotifier() : super(null);
 }
 
 enum Sensor { accelerometer, gps }
