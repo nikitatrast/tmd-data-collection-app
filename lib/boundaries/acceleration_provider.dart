@@ -1,15 +1,34 @@
 import 'dart:async';
 import '../backends/sensor_data_provider.dart';
 import 'package:sensors/sensors.dart' as plugin;
-import '../models.dart' show Acceleration;
+import '../models.dart' show Serializable;
 
-class AccelerationProvider implements SensorDataProvider {
-  Stream<Acceleration> get stream {
-    return plugin.accelerometerEvents.map((event) => Acceleration(
-      time: DateTime.now(),
-      x: event.x,
-      y: event.y,
-      z: event.z,
-    ));
+class AccelerometerData extends Serializable {
+  int _millisecondsSinceEpoch;
+  double _x, _y, _z;
+
+  String serialize() {
+    return '$_millisecondsSinceEpoch,$_x,$_y,$_z,\n';
+  }
+
+  AccelerometerData.parse(String str) {
+    final parts = str.split(',');
+    _millisecondsSinceEpoch = int.parse(parts[0]);
+    _x = double.parse(parts[1]);
+    _y = double.parse(parts[2]);
+    _z = double.parse(parts[3]);
+  }
+
+  AccelerometerData.create(plugin.AccelerometerEvent event) {
+    _millisecondsSinceEpoch = DateTime.now().millisecondsSinceEpoch;
+    _x = event.x;
+    _y = event.y;
+    _z = event.z;
+  }
+}
+
+class AccelerationProvider implements SensorDataProvider<AccelerometerData> {
+  Stream<AccelerometerData> get stream {
+    return plugin.accelerometerEvents.map((e) => AccelerometerData.create(e));
   }
 }

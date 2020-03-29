@@ -33,6 +33,7 @@ dependencies:
   provider: any
   cupertino_icons: ^0.1.2
   battery: ">=0.3.1+9 <2.0.0"
+  async:
 
 dev_dependencies:
   flutter_test:

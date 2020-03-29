@@ -1,62 +1,80 @@
 import 'dart:async';
+import 'package:async/async.dart';
 
 import 'package:accelerometertest/backends/gps_auth.dart';
 
-import '../boundaries/data_provider.dart';
+import '../boundaries/data_store.dart';
 import 'sensor_data_provider.dart';
-import '../models.dart' show Location, Modes, Trip, Sensor;
+import '../models.dart' show Modes, Sensor, Trip;
 import '../widgets/trip_recorder_widget.dart' show TripRecorderBackend;
+import '../boundaries/location_provider.dart' show LocationData;
 
 class TripRecorderBackendImpl implements TripRecorderBackend {
   Map<Sensor, SensorDataProvider> _providers;
-  Map<Sensor, StreamSubscription> _subscriptions = {};
-  DataProvider _storage;
+  DataStore _storage;
   GPSAuth gpsAuth;
   Trip _trip;
+  DataStoreEntry _entry;
+  Completer __recording;
 
   TripRecorderBackendImpl(this._providers, this.gpsAuth, this._storage);
 
   @override
-  void startRecording() {
+  Future<bool> start(Modes tripMode) async {
     _trip = Trip();
+    _trip.mode = tripMode;
     _trip.start = DateTime.now();
+    _entry = await _storage.getEntry(_trip);
+    __recording = Completer();
+
     for (var sensor in _providers.keys) {
-      if (_subscriptions[sensor] != null) {
-        print('[TripRecorder] startRecording called but $sensor already on!');
-        continue; // already started successfully
-      }
-      _trip.sensorsData.putIfAbsent(sensor, () => []);
       var provider = _providers[sensor];
       print('[TripRecorder] startRecording for $sensor');
-      var dataReceived = false;
-      _subscriptions[sensor] = provider.stream.listen((data) {
-        _trip.sensorsData[sensor].add(data);
-        if (!dataReceived) {
-          dataReceived = true;
-          print('[TripRecorder] Received data from $sensor');
-        }
-      });
+      _entry.record(sensor, recorderStream(provider.stream, sensor.toString()));
+    }
+    return Future.value(true);
+  }
+
+  void stop() {
+    if (!__recording.isCompleted) {
+      _trip.end = DateTime.now();
+      __recording.complete(true);
     }
   }
 
   @override
-  void stopRecording() {
-    _trip.end = DateTime.now();
-    for (var sensor in _subscriptions.keys) {
-      _subscriptions[sensor]?.cancel();
-      _subscriptions[sensor] = null;
+  Future<bool> save() async {
+    print('[TripRecorder] save()');
+    stop();
+    return await _entry.save(DateTime.now());
+  }
+
+  @override
+  Future<void> cancel() async {
+    print('[TripRecorder] cancel()');
+    stop();
+    await _entry.delete();
+  }
+
+  @override
+  void dispose() {
+    if (!__recording.isCompleted) {
+      stop();
+      print('[TripRecorder] dispose(): not exited properly.');
     }
   }
 
   @override
-  Stream<Location> locationStream() {
+  Stream<LocationData> locationStream() {
     return _providers[Sensor.gps].stream;
   }
 
-  @override
-  Future<bool> persistData(Modes travelMode) async {
-    _trip.mode = travelMode;
-    await _storage.persist(_trip);
-    return true;
+  Stream<T> recorderStream<T>(Stream<T> input, String tag) {
+    // Provider won't close stream
+    // So, this function wraps the Provider's streams and closes when
+    // recording is done.
+    Stream<T> done = __recording.future.asStream().map((e) => null);
+    return StreamGroup.merge<T>([done, input]).takeWhile((e) => e != null);
   }
+
 }

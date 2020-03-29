@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong/latlong.dart';
-import '../models.dart' show Location;
+import '../boundaries/location_provider.dart' show LocationData;
 
 class MapWidget extends StatefulWidget {
-  final Stream<Location> stream;
+  final Stream<LocationData> stream;
 
   MapWidget(this.stream);
 

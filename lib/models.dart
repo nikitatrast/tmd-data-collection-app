@@ -113,15 +113,6 @@ extension GPSPrefExt on GPSPref {
   })[this];
 }
 
-class Acceleration {
-  DateTime time;
-  double x;
-  double y;
-  double z;
-
-  Acceleration({this.time, this.x, this.y, this.z});
-}
-
 class Trip {
   DateTime start;
   DateTime end;
@@ -131,17 +122,12 @@ class Trip {
   String toString() => 'Trip(${mode.text} à ${start.toIso8601String()})';
 }
 
-class StoredTrip extends Trip {
-  int sizeOnDisk;
+abstract class Serializable {
+  String serialize();
 }
 
-class Location {
-  DateTime time;
-  double latitude;
-  double longitude;
-  double altitude;
-
-  Location({this.time, this.latitude, this.longitude, this.altitude});
+class StoredTrip extends Trip {
+  int sizeOnDisk;
 }
 
 class CellularNetworkAllowed extends ValueNotifier<bool> {

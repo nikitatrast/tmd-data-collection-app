@@ -6,15 +6,18 @@ import 'package:provider/provider.dart';
 import '../models.dart';
 import '../widgets/map_widget.dart';
 import '../widgets/gps_auth_tile.dart';
+import '../boundaries/location_provider.dart' show LocationData;
 
 abstract class TripRecorderBackend {
-  void startRecording();
+  Future<bool> start(Modes tripMode);
 
-  void stopRecording();
+  Future<bool> save();
 
-  Future<bool> persistData(Modes travelMode);
+  void cancel();
 
-  Stream<Location> locationStream();
+  void dispose();
+
+  Stream<LocationData> locationStream();
 }
 
 class TripRecorderWidget extends StatefulWidget {
@@ -40,18 +43,23 @@ class TripRecorderWidgetState extends State<TripRecorderWidget> {
   void initState() {
     super.initState();
     recorder = widget.recorderBuilder();
-    recorder.startRecording();
+    recorder.start(widget.mode);
     createdTime = DateTime.now();
   }
 
   Future<bool> onSave() async {
-    recorder.stopRecording();
-    return recorder.persistData(widget.mode);
+    return recorder.save();
   }
 
   Future<bool> onCancel() async {
-    recorder.stopRecording();
+    recorder.cancel();
     return true;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    recorder.dispose(); // make sure recorder's resources are released!
   }
 
   Widget noGPSPane() {
@@ -72,18 +80,16 @@ class TripRecorderWidgetState extends State<TripRecorderWidget> {
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<GPSAuth>(
-        builder: (context, auth, _) {
-          if (auth.value == true) {
-            return Column(children: [
-              Expanded(child: MapWidget(recorder.locationStream())),
-              GpsAuthTile(),
-            ]);
-          } else {
-            return noGPSPane();
-          }
-        }
-    );
+    return Consumer<GPSAuth>(builder: (context, auth, _) {
+      if (auth.value == true) {
+        return Column(children: [
+          Expanded(child: MapWidget(recorder.locationStream())),
+          GpsAuthTile(),
+        ]);
+      } else {
+        return noGPSPane();
+      }
+    });
   }
 
   @override

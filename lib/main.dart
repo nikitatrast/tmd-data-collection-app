@@ -1,10 +1,11 @@
+import 'package:accelerometertest/backends/sensor_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
-import 'boundaries/data_provider.dart';
+import 'boundaries/data_store.dart';
 import 'boundaries/location_provider.dart';
 import 'boundaries/preferences_provider.dart';
 import 'backends/trip_recorder_backend.dart';
@@ -22,10 +23,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var prefs = PreferencesProvider();
   var sync = SyncManager(prefs.cellularNetwork);
-  var storage = DataProvider();
+  var storage = DataStore();
   var battery = BatteryNotifier();
   var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
-  var sensorDataProviders = {
+  var sensorDataProviders = <Sensor, SensorDataProvider>{
     Sensor.gps: LocationProvider(gpsAuth),
     Sensor.accelerometer: AccelerationProvider()
   };

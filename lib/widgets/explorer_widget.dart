@@ -190,7 +190,8 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
 String _formatDate(start, stop) {
   var day = DateFormat('EEE d MMMM', 'fr_FR');
   var time = DateFormat.jm('fr_FR');
-  return day.format(start) + ' entre ' + time.format(start) + ' et ' + time.format(stop);
+  return day.format(start) + ' entre ' + time.format(start) + ' et '
+      + ((start == stop) ? '??' : time.format(stop));
 }
 
 String _formatDuration(StoredTrip trip) {
