@@ -67,7 +67,7 @@ class LocationProvider implements SensorDataProvider<LocationData> {
     auth.addListener(authChanged);
 
     if (auth.value == true && subscription == null) {
-      if (await hasPermission() && subscription == null) {
+      if (await requestPermission() && subscription == null) {
         subscription = plugin.Location().onLocationChanged().listen((event) {
           controller.add(LocationData.create(event));
         });
@@ -115,12 +115,6 @@ class LocationProvider implements SensorDataProvider<LocationData> {
 
   // ---------------------------------------------------------------------------
 
-  Future<bool> hasPermission() async {
-    var _source = plugin.Location();
-    return (await _source.serviceEnabled()) &&
-        (await _source.hasPermission() == plugin.PermissionStatus.GRANTED);
-  }
-
   Future<bool> requestPermission() async {
     var _source = plugin.Location();
     var serviceEnabled = await _source.serviceEnabled();
@@ -139,7 +133,7 @@ class LocationProvider implements SensorDataProvider<LocationData> {
     }
     _source.changeSettings(
       accuracy: plugin.LocationAccuracy.HIGH,
-      interval: 50 /* ms */,
+      interval: 1000 /* ms */,
     );
     return true;
   }

@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:filesize/filesize.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
-import '../models.dart' show StoredTrip, Mode, ModeIcon;
+import '../models.dart' show Mode, ModeIcon, Trip, Sensor;
 import '../utils.dart' show StringExtension;
 
 abstract class ExplorerBackend {
-  Future<List<StoredTrip>> trips();
+  Future<List<ExplorerItem>> trips();
 
-  Future<bool> delete(StoredTrip item);
+  Future<bool> delete(ExplorerItem item);
+}
+
+class ExplorerItem extends Trip {
+  int sizeOnDisk;
+  int nbSensors;
+  Function nbEvents;
 }
 
 class ExplorerWidget extends StatefulWidget {
@@ -21,8 +26,8 @@ class ExplorerWidget extends StatefulWidget {
 }
 
 class ExplorerWidgetState extends State<ExplorerWidget> {
-  List<StoredTrip> items;
-  Set<StoredTrip> selected = Set();
+  List<ExplorerItem> items;
+  Set<ExplorerItem> selected = Set();
 
   @override
   void initState() {
@@ -30,7 +35,7 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
     widget.backend.trips().then((items) => setState(() => this.items = items));
   }
 
-  void itemChanged(StoredTrip item, bool isSelected) {
+  void itemChanged(ExplorerItem item, bool isSelected) {
     setState(() {
       if (isSelected) {
         selected.add(item);
@@ -48,7 +53,7 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
     return allOk;
   }
 
-  Future<bool> deleteItem(StoredTrip item) async {
+  Future<bool> deleteItem(ExplorerItem item) async {
     print('[ExplorerWidget] Deletion request for $item');
     var ok = await widget.backend.delete(item);
     print('[ExplorerWidget] deletion status: $ok');
@@ -64,36 +69,31 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
     Widget body;
     if (items == null) {
       body = Center(
-          child: Text("Chargement en cours...",textAlign: TextAlign.center));
+          child: Text("Chargement en cours...", textAlign: TextAlign.center));
     } else if (items.isEmpty) {
       body = Center(
-          child: Text("Aucun trajet enregistré",textAlign: TextAlign.center));
+          child: Text("Aucun trajet enregistré", textAlign: TextAlign.center));
     } else {
       body = Column(mainAxisSize: MainAxisSize.max, children: [
         Expanded(
             child: ListView(
-              children: <Widget>[
-                for (var item in items)
-                  CheckboxListTile(
-                    title: _makeTitle(item),
-                    secondary: Icon(item.mode.iconData, size: 40),
-                    subtitle: _makeSubtitle(item),
-                    value: selected.contains(item),
-                    onChanged: (value) => itemChanged(item, value),
-                  )
-              ],
-            )),
+          children: <Widget>[
+            for (var item in items) _makeTile(item),
+          ],
+        )),
         ButtonBar(
             alignment: MainAxisAlignment.end,
             mainAxisSize: MainAxisSize.max,
-            children: [
-              FloatingActionButton(
-                onPressed:
-                selected.isEmpty ? null : () => deleteDialog(context),
-                child: Icon(Icons.delete),
-                heroTag: 'deleteButton',
-              )
-            ])
+            children: (selected.isEmpty)
+                ? []
+                : [
+                    FloatingActionButton(
+                      onPressed:
+                          selected.isEmpty ? null : () => deleteDialog(context),
+                      child: Icon(Icons.delete),
+                      heroTag: 'deleteButton',
+                    )
+                  ])
       ]);
     }
     return Scaffold(
@@ -104,38 +104,73 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
     );
   }
 
-  Widget _makeTitle(item) {
-    return Text(_formatDate(item.start, item.end).capitalize());
+  Widget _makeTile(ExplorerItem item) {
+    if (selected.isNotEmpty) {
+      return CheckboxListTile(
+        title: _makeTitle(item),
+        secondary: Icon(item.mode.iconData, size: 40),
+        subtitle: _makeSubtitle(item),
+        value: selected.contains(item),
+        onChanged: (value) => itemChanged(item, value),
+        //onLongPress: () => selected.clear(),
+      );
+    } else {
+      return ListTile(
+        title: _makeTitle(item),
+        leading: Icon(item.mode.iconData, size: 40),
+        subtitle: _makeSubtitle(item),
+        onTap: () => _infoDialog(context, item),
+        onLongPress: () => setState(() {
+          selected.add(item);
+        }),
+      );
+    }
   }
 
-  Widget _makeSubtitle(item) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          WidgetSpan(
-            child: Icon(Icons.access_time, size: 14),
-          ),
-          TextSpan(
-              text: ' ' + _formatDuration(item) + '    ',
-              style: TextStyle(color: Colors.black)
-          ),
-          WidgetSpan(
-            child: Icon(Icons.computer, size: 14),
-          ),
-          TextSpan(
-              text: ' ' + filesize(item.sizeOnDisk) + '    ',
-              style: TextStyle(color: Colors.black)
-          ),
-          WidgetSpan(
-            child: Icon(Icons.location_on, size: 14),
-          ),
-          TextSpan(
-              text: item.sensorsData.keys.length.toString(),
-              style: TextStyle(color: Colors.black)
-          ),
-        ],
+  void _infoDialog(BuildContext context, ExplorerItem item) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Text('Info'),
+          actions: [
+            IconButton(
+              icon: Icon(item.mode.iconData),
+              onPressed: null,
+            )
+          ],
+        ),
+        body: ListView(
+            shrinkWrap: true,
+            //crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                  title: Container(
+                      padding: EdgeInsets.all(20),
+                      child: Center(
+                          child: Icon(item.mode.iconData, size: 80))))
+            ]..addAll(ListTile.divideTiles(context: context, tiles: [
+                  ListTile(
+                    title: Text('Début: ' + _formatDate(item.start)),
+                    leading: Icon(Icons.access_time, size: 40),
+                  ),
+                  ListTile(
+                      title: Text('Fin: ' + _formatDate(item.end)),
+                      leading: Icon(Icons.access_time, size: 40)),
+                  ListTile(
+                      title: Text('Durée: ' + _formatDuration(item)),
+                      leading: Icon(Icons.timelapse, size: 40)),
+                  for (Sensor sensor in Sensor.values)
+                    ListTile(
+                        title: _sensorDataWidget(item, sensor),
+                        leading: Icon(sensor.iconData, size: 40)),
+                ]).toList())
+        ),
+        floatingActionButton: OutlineButton(
+          child: Text('retour'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
-    );
+    ));
   }
 
   void deleteDialog(BuildContext context) {
@@ -187,14 +222,84 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
   }
 }
 
-String _formatDate(start, stop) {
-  var day = DateFormat('EEE d MMMM', 'fr_FR');
-  var time = DateFormat.jm('fr_FR');
-  return day.format(start) + ' entre ' + time.format(start) + ' et '
-      + ((start == stop) ? '??' : time.format(stop));
+extension SensorIcon on Sensor {
+  IconData get iconData {
+    switch (this) {
+      case Sensor.gps:
+        return Icons.location_on;
+      case Sensor.accelerometer:
+        return Icons.font_download;
+      default:
+        return Icons.device_unknown;
+    }
+  }
 }
 
-String _formatDuration(StoredTrip trip) {
+Widget _makeTitle(item) {
+  return Text(_formatPeriod(item.start, item.end).capitalize());
+}
+
+Widget _makeSubtitle(item) {
+  return RichText(
+    text: TextSpan(
+      children: [
+        WidgetSpan(
+          child: Icon(Icons.access_time, size: 14),
+        ),
+        TextSpan(
+            text: ' ' + _formatDuration(item) + '    ',
+            style: TextStyle(color: Colors.black)),
+        WidgetSpan(
+          child: Icon(Icons.computer, size: 14),
+        ),
+        TextSpan(
+            text: ' ' + filesize(item.sizeOnDisk) + '    ',
+            style: TextStyle(color: Colors.black)),
+        WidgetSpan(
+          child: Icon(Icons.location_on, size: 14),
+        ),
+        TextSpan(
+            text: item.nbSensors.toString(),
+            style: TextStyle(color: Colors.black)),
+      ],
+    ),
+  );
+}
+
+String _sensorName(Sensor sensor) {
+  return sensor.toString().split('.')[1].capitalize();
+}
+
+Widget _sensorDataWidget(ExplorerItem item, Sensor sensor) {
+  var sName = _sensorName(sensor);
+  return FutureBuilder(
+      future: item.nbEvents(sensor),
+      builder: (context, snap) {
+        if (!snap.hasData)
+          return Text('$sName: calcul en cours...');
+        else if (snap.data == -1)
+          return Text('$sName: 0');
+        else
+          return Text('$sName: ${snap.data} lignes');
+      });
+}
+
+String _formatPeriod(start, stop) {
+  var day = DateFormat('EEE d MMMM', 'fr_FR');
+  var time = DateFormat.jm('fr_FR');
+  return day.format(start) +
+      ' entre ' +
+      time.format(start) +
+      ' et ' +
+      ((start == stop) ? '??' : time.format(stop));
+}
+
+String _formatDate(DateTime date) {
+  var format = DateFormat('EEE d MMMM,', 'fr_FR').add_Hms();
+  return format.format(date);
+}
+
+String _formatDuration(ExplorerItem trip) {
   var d = trip.end.difference(trip.start);
 
   if (d.inHours > 0) {

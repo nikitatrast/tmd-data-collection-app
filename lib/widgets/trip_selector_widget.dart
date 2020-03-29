@@ -27,7 +27,7 @@ class TripSelectorWidget extends StatelessWidget {
         children: <Widget>[
           for (var m in modes)
             ListTile(
-              leading: Icon(m.iconData),
+              leading: Icon(m.iconData, size: 30),
               title: Text(m.text),
               onTap: actions[m],
             )

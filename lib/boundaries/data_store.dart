@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart' as plugin;
-import '../models.dart' show ModeRoute, Sensor, Serializable, StoredTrip, Trip;
-import '../widgets/explorer_widget.dart' show ExplorerBackend;
+import '../models.dart' show ModeRoute, Sensor, Serializable, Trip;
+import '../widgets/explorer_widget.dart' show ExplorerBackend, ExplorerItem;
 
 class DataStoreEntry {
   Trip _trip;
@@ -74,13 +74,13 @@ class DataStore implements ExplorerBackend {
     return DataStoreEntry._make(t, dir);
   }
 
-  Future<List<StoredTrip>> trips() async {
+  Future<List<ExplorerItem>> trips() async {
     var items = (await _dataDirectory()).listSync();
     var fullItems = (await _dataDirectory()).listSync(recursive: true);
     print('[DataProvider] available items:');
     print('\t' + fullItems.join('\n\t'));
     print('---------------------------');
-    var trips = <StoredTrip>[];
+    var trips = <ExplorerItem>[];
     for (var item in items) {
       try {
         trips.add(_makeTrip(item));
@@ -92,7 +92,7 @@ class DataStore implements ExplorerBackend {
   }
 
   @override
-  Future<bool> delete(StoredTrip item) async {
+  Future<bool> delete(ExplorerItem item) async {
     var entry = await getEntry(item);
     return await entry.delete();
   }
@@ -115,24 +115,29 @@ Future<Directory> _dataDirectory() async {
   return dataDir.create();
 }
 
-StoredTrip _makeTrip(FileSystemEntity item) {
+ExplorerItem _makeTrip(FileSystemEntity item) {
   var filename = item.path
       .split('/')
       .last;
   var parts = filename.split('_');
-  var result = StoredTrip();
+  var result = ExplorerItem();
   result.mode = ModeRoute.fromRoute('/' + parts[0]);
   result.start = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[1]));
   result.end = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[2]));
 
   var dir = item as Directory;
-  var files = dir.listSync();
-  var sensors = files.map((e) => e.path.split('/').last.split('.').first);
+  List<FileSystemEntity> files = dir.listSync();
   var sizes = files.map((e) => e.statSync().size);
+  result.nbSensors = files.length;
   result.sizeOnDisk = (sizes.isEmpty) ? 0 : sizes.reduce((a,b) => a + b);
-  result.sensorsData = Map.fromEntries(sensors.map(
-          (s) => MapEntry(_sensorFromName[s], null)
-  ));
+  result.nbEvents = (Sensor sensor) async {
+    var path = _filepath(result, sensor, dir.path);
+    try {
+      return File(path).readAsStringSync().length;
+    } on FileSystemException {
+      return -1;
+    }
+  };
   return result;
 }
 

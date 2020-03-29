@@ -117,17 +117,12 @@ class Trip {
   DateTime start;
   DateTime end;
   Modes mode;
-  Map<Sensor, List> sensorsData = {};
 
   String toString() => 'Trip(${mode.text} à ${start.toIso8601String()})';
 }
 
 abstract class Serializable {
   String serialize();
-}
-
-class StoredTrip extends Trip {
-  int sizeOnDisk;
 }
 
 class CellularNetworkAllowed extends ValueNotifier<bool> {
