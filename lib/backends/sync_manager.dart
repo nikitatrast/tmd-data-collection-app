@@ -1,11 +1,13 @@
 import 'package:flutter/cupertino.dart';
 
-import '../boundaries/connectivity_provider.dart';
-import '../models.dart' show SyncStatus, CellularNetworkAllowed, Connectivity;
+import '../boundaries/connectivity.dart';
+import '../boundaries/preferences_provider.dart' show CellularNetworkAllowed;
+
+enum SyncStatus { uploading, done, awaitingNetwork, serverDown }
 
 class SyncManager {
   ValueNotifier<SyncStatus> status = ValueNotifier<SyncStatus>(null);
-  ValueNotifier<Connectivity> connectivity = ConnectivityProvider().notifier;
+  ValueNotifier<ConnectivityStatus> connectivity = ConnectivityNotifier();
   CellularNetworkAllowed auth;
 
   SyncManager(this.auth) {
@@ -20,9 +22,9 @@ class SyncManager {
 
   bool get _mobileAllowed => auth.value;
 
-  bool get _mobileAvailable => connectivity.value == Connectivity.mobile;
+  bool get _mobileAvailable => connectivity.value == ConnectivityStatus.mobile;
 
-  bool get _wifiAvailable => connectivity.value == Connectivity.wifi;
+  bool get _wifiAvailable => connectivity.value == ConnectivityStatus.wifi;
 
   bool get _networkAvailable => _wifiAvailable || (_mobileAllowed && _mobileAvailable);
 

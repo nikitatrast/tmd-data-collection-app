@@ -1,41 +1,39 @@
 import 'dart:async';
 
-import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models.dart';
+import '../backends/gps_auth.dart';
+import '../boundaries/location_provider.dart' show LocationData;
+import '../widgets/modes_view.dart';
 import '../widgets/map_widget.dart';
 import '../widgets/gps_auth_tile.dart';
-import '../boundaries/location_provider.dart' show LocationData;
 
 abstract class TripRecorderBackend {
-  Future<bool> start(Modes tripMode);
-
+  Future<bool> start(Mode tripMode);
   Future<bool> save();
-
   void cancel();
-
   void dispose();
-
   Stream<LocationData> locationStream();
 }
 
-class TripRecorderWidget extends StatefulWidget {
-  final Modes mode;
+class TripRecorderPage extends StatefulWidget {
+  final Mode mode;
   final Function exit;
   final Function recorderBuilder;
 
-  TripRecorderWidget({
+  TripRecorderPage({
     @required this.mode,
     @required this.exit,
     @required this.recorderBuilder,
   });
 
   @override
-  State<StatefulWidget> createState() => TripRecorderWidgetState();
+  State<StatefulWidget> createState() => TripRecorderPageState();
 }
 
-class TripRecorderWidgetState extends State<TripRecorderWidget> {
+class TripRecorderPageState extends State<TripRecorderPage> {
   TripRecorderBackend recorder;
   DateTime createdTime;
 

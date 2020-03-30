@@ -1,14 +1,35 @@
-import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../backends/gps_auth.dart';
-import '../models.dart'
-    show
-    CellularNetworkAllowed,
-    GPSPref,
-    GPSPrefNotifier,
-    GPSPrefExt;
+class CellularNetworkAllowed extends ValueNotifier<bool> {
+  CellularNetworkAllowed() : super(null);
+}
+
+class GPSPrefNotifier extends ValueNotifier<GPSPref> {
+  GPSPrefNotifier() : super(null);
+}
+
+enum GPSPref {
+  always,
+  whenCharging,
+  batteryLevel20,
+  batteryLevel40,
+  batteryLevel60,
+  batteryLevel80,
+  never
+}
+extension GPSPrefValue on GPSPref {
+  String get value => (const {
+    GPSPref.always: 'always',
+    GPSPref.batteryLevel20: 'batteryLevel20',
+    GPSPref.batteryLevel40: 'batteryLevel40',
+    GPSPref.batteryLevel60: 'batteryLevel60',
+    GPSPref.batteryLevel80: 'batteryLevel80',
+    GPSPref.whenCharging: 'whenCharging',
+    GPSPref.never: 'never',
+  })[this];
+}
 
 class PreferencesProvider {
   var cellularNetwork = CellularNetworkAllowed();

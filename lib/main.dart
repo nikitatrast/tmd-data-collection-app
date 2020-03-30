@@ -1,23 +1,28 @@
-import 'package:accelerometertest/backends/sensor_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'boundaries/sensor_data_provider.dart';
 import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
 import 'boundaries/location_provider.dart';
 import 'boundaries/preferences_provider.dart';
+
 import 'backends/trip_recorder_backend.dart';
 import 'backends/sync_manager.dart';
 import 'backends/gps_auth.dart';
+import 'backends/explorer_backend.dart';
 
-import 'models.dart' show ModeRoute, enabledModes, Sensor;
+import 'models.dart' show enabledModes, Sensor;
 
-import 'widgets/trip_selector_widget.dart';
-import 'widgets/settings_widget.dart';
-import 'widgets/explorer_widget.dart';
-import 'widgets/trip_recorder_widget.dart';
+import 'pages/trip_selector_page.dart';
+import 'pages/settings_page.dart';
+import 'pages/explorer_page.dart';
+import 'pages/trip_recorder_page.dart';
+
+import 'widgets/modes_view.dart' show ModeRoute;
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +42,7 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: sync.status),
-      Provider<ExplorerBackend>.value(value: storage),
+      Provider<ExplorerBackend>.value(value: ExplorerBackendImpl(storage)),
       Provider<TripRecorderBackendImpl>(
           create: (_) => TripRecorderBackendImpl(
               sensorDataProviders, gpsAuth, storage)),
@@ -66,14 +71,14 @@ class MyApp extends StatelessWidget {
         routes: {
           for (var mode in enabledModes)
             mode.route: (context) => Consumer<TripRecorderBackendImpl>(
-                  builder: (context, recorder, _) => TripRecorderWidget(
+                  builder: (context, recorder, _) => TripRecorderPage(
                     mode: mode,
                     recorderBuilder: () => recorder,
                     exit: () => Navigator.of(context)
                         .pushReplacementNamed('/selection'),
                   ),
                 ),
-          '/selection': (context) => TripSelectorWidget(
+          '/selection': (context) => TripSelectorPage(
                 modes: enabledModes,
                 actions: {
                   for (var em in enabledModes)
@@ -83,11 +88,11 @@ class MyApp extends StatelessWidget {
                 settingsAction: () =>
                     Navigator.of(context).pushNamed('/settings'),
               ),
-          '/settings': (context) => SettingsWidget(
+          '/settings': (context) => SettingsPage(
                 () => Navigator.of(context).pushNamed('/data-explorer'),
               ),
           '/data-explorer': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) => ExplorerWidget(backend)),
+              builder: (context, backend, _) => ExplorerPage(backend)),
         });
   }
 }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import '../models.dart' show Modes, ModeIcon, ModeText;
+import '../models.dart' show Mode;
+import '../widgets/modes_view.dart';
 
-class TripSelectorWidget extends StatelessWidget {
-  final List<Modes> modes;
-  final Map<Modes, Function> actions;
+class TripSelectorPage extends StatelessWidget {
+  final List<Mode> modes;
+  final Map<Mode, Function> actions;
   final Function settingsAction;
 
-  TripSelectorWidget({this.modes, this.actions, this.settingsAction});
+  TripSelectorPage({this.modes, this.actions, this.settingsAction});
 
   @override
   Widget build(BuildContext context) {

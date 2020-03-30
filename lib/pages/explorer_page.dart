@@ -1,38 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:filesize/filesize.dart';
 import 'package:intl/intl.dart';
-import '../models.dart' show Mode, ModeIcon, Trip, Sensor;
+import 'package:provider/provider.dart';
+import '../models.dart' show Trip, Sensor;
+import '../widgets/modes_view.dart' show ModeIcon;
 import '../utils.dart' show StringExtension;
 
-abstract class ExplorerBackend {
-  Future<List<ExplorerItem>> trips();
+enum UploadStatus {
+  local, pending, uploading, uploaded, unknown, error
+}
 
+abstract class ExplorerBackend {
+  Future<List<ExplorerItem>> items();
   Future<bool> delete(ExplorerItem item);
+  Future<int> nbEvents(ExplorerItem item, Sensor s);
+  void scheduleUpload(ExplorerItem item);
+  void cancelUpload(ExplorerItem item);
 }
 
 class ExplorerItem extends Trip {
+  DateTime end;
   int sizeOnDisk;
   int nbSensors;
-  Function nbEvents;
+  ValueNotifier<UploadStatus> status;
 }
 
-class ExplorerWidget extends StatefulWidget {
+class ExplorerPage extends StatefulWidget {
   final ExplorerBackend backend;
 
-  ExplorerWidget(this.backend);
+  ExplorerPage(this.backend);
 
   @override
-  State<ExplorerWidget> createState() => ExplorerWidgetState();
+  State<ExplorerPage> createState() => ExplorerPageState();
 }
 
-class ExplorerWidgetState extends State<ExplorerWidget> {
+class ExplorerPageState extends State<ExplorerPage> {
   List<ExplorerItem> items;
   Set<ExplorerItem> selected = Set();
 
   @override
   void initState() {
     super.initState();
-    widget.backend.trips().then((items) => setState(() => this.items = items));
+    widget.backend.items().then((items) => setState(() => this.items = List.from(items)));
   }
 
   void itemChanged(ExplorerItem item, bool isSelected) {
@@ -112,7 +121,6 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
         subtitle: _makeSubtitle(item),
         value: selected.contains(item),
         onChanged: (value) => itemChanged(item, value),
-        //onLongPress: () => selected.clear(),
       );
     } else {
       return ListTile(
@@ -120,9 +128,10 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
         leading: Icon(item.mode.iconData, size: 40),
         subtitle: _makeSubtitle(item),
         onTap: () => _infoDialog(context, item),
-        onLongPress: () => setState(() {
-          selected.add(item);
-        }),
+        onLongPress: () =>
+            setState(() {
+              selected.add(item);
+            }),
       );
     }
   }
@@ -220,6 +229,20 @@ class ExplorerWidgetState extends State<ExplorerWidget> {
       },
     );
   }
+
+  Widget _sensorDataWidget(ExplorerItem item, Sensor sensor) {
+    var sName = _sensorName(sensor);
+    return FutureBuilder(
+        future: widget.backend.nbEvents(item, sensor),
+        builder: (context, snap) {
+          if (!snap.hasData)
+            return Text('$sName: calcul en cours...');
+          else if (snap.data == -1)
+            return Text('$sName: 0');
+          else
+            return Text('$sName: ${snap.data} lignes');
+        });
+  }
 }
 
 extension SensorIcon on Sensor {
@@ -270,19 +293,7 @@ String _sensorName(Sensor sensor) {
   return sensor.toString().split('.')[1].capitalize();
 }
 
-Widget _sensorDataWidget(ExplorerItem item, Sensor sensor) {
-  var sName = _sensorName(sensor);
-  return FutureBuilder(
-      future: item.nbEvents(sensor),
-      builder: (context, snap) {
-        if (!snap.hasData)
-          return Text('$sName: calcul en cours...');
-        else if (snap.data == -1)
-          return Text('$sName: 0');
-        else
-          return Text('$sName: ${snap.data} lignes');
-      });
-}
+
 
 String _formatPeriod(start, stop) {
   var day = DateFormat('EEE d MMMM', 'fr_FR');

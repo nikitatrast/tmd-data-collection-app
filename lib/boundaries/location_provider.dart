@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:accelerometertest/backends/gps_auth.dart';
-import 'package:accelerometertest/backends/sensor_data_provider.dart';
+import 'package:accelerometertest/boundaries/sensor_data_provider.dart';
 import 'package:accelerometertest/models.dart' show Serializable;
 import 'package:location/location.dart' as plugin;
 

@@ -1,7 +1,5 @@
-import 'package:accelerometertest/models.dart';
 import 'package:flutter/cupertino.dart';
-import '../models.dart' show GPSPrefNotifier, GPSPref;
-import '../boundaries/location_provider.dart' show LocationProvider;
+import '../boundaries/preferences_provider.dart' show GPSPrefNotifier, GPSPref;
 import '../boundaries/battery.dart';
 
 class GPSAuth extends ValueNotifier<bool> {

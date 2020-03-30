@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../backends/sensor_data_provider.dart';
+import 'sensor_data_provider.dart';
 import 'package:sensors/sensors.dart' as plugin;
 import '../models.dart' show Serializable;
 

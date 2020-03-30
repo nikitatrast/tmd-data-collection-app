@@ -1,22 +1,19 @@
 import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:provider/provider.dart';
 
-import '../models.dart'
-    show
-        CellularNetworkAllowed,
-        GPSPref,
-        GPSPrefExt;
+import '../boundaries/preferences_provider.dart'
+    show CellularNetworkAllowed, GPSPref, GPSPrefValue;
 
 import '../widgets/gps_auth_tile.dart';
 
 import 'package:flutter/material.dart';
-import 'loading_switch_tile_widget.dart';
-import 'sync_status_widget.dart';
+import '../widgets/loading_switch_tile_widget.dart';
+import '../widgets/sync_status_widget.dart';
 
-class SettingsWidget extends StatelessWidget {
-  final Function dataExplorer;
+class SettingsPage extends StatelessWidget {
+  final Function openDataExplorer;
 
-  SettingsWidget(this.dataExplorer);
+  SettingsPage(this.openDataExplorer);
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +41,7 @@ class SettingsWidget extends StatelessWidget {
                 title: Text("Afficher les données enregistrées"),
                 leading: Icon(Icons.insert_drive_file, size: 40),
                 trailing: Icon(Icons.arrow_forward_ios),
-                onTap: dataExplorer)
+                onTap: openDataExplorer)
           ]).toList()),
       Divider(),
       Expanded(child: Container()),

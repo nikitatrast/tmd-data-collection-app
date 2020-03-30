@@ -1,157 +1,131 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:path_provider/path_provider.dart' as plugin;
-import '../models.dart' show ModeRoute, Sensor, Serializable, Trip;
-import '../widgets/explorer_widget.dart' show ExplorerBackend, ExplorerItem;
 
-class DataStoreEntry {
-  Trip _trip;
-  Directory _dir;
-  Future _recordingOps = Future.value(null);
+import '../models.dart' show Sensor, Serializable, Trip, ModeValue;
+import '../utils.dart' show IterSum;
 
-  DataStoreEntry._make(this._trip, this._dir);
+class TripInfo {
+  Trip trip;
+  DateTime end;
+  int nbSensors;
+  int sizeOnDisk;
+}
 
-  Future<void> record(Sensor sensor, Stream<Serializable> data) async {
-    print('[DataStoreEntry] opening file for $sensor');
-    final destPath = _filepath(_trip, sensor, _dir.path);
-    var file = File(destPath);
+class DataStore {
+  Future<List<Trip>> trips() async {
+    var root = await _rootDir();
+    var trips = root.listSync().map((e) => _readTrip(e.path));
+    trips = trips.where((trip) => trip != null);
+    return trips.toList(growable: true);
+  }
+
+  Future<TripInfo> getInfo(Trip t) async {
+    var info = TripInfo();
+    var dir = Directory(await _dirPath(t));
+    var getSize = (FileSystemEntity file) => file.statSync().size;
+    info.trip = t;
+    info.end = DateTime.fromMillisecondsSinceEpoch(
+        int.parse(await File(await _endPath(t)).readAsString())
+    );
+    info.nbSensors = (await Future.wait(Sensor.values.map((sensor) async {
+      var file = File(await _filePath(t, sensor));
+      return file.existsSync() ? 1 : 0;
+    }))).sum;
+    info.sizeOnDisk = dir.listSync(recursive: true).map(getSize).sum;
+
+    return info;
+  }
+
+  Future<bool> delete(Trip t) async {
+    var path = await _dirPath(t);
+    Directory(path).deleteSync(recursive: true);
+    return true;
+  }
+
+  Future<void> save(Trip t, DateTime end) async {
+    await _makeTripDirectory(t);
+    var endFile = File(await _endPath(t));
+    endFile.writeAsStringSync(end.millisecondsSinceEpoch.toString());
+  }
+
+  Future<void> recordData(Trip t, Sensor s, Stream<Serializable> dataStream) async {
+    await _makeTripDirectory(t);
+    var file = File(await _filePath(t, s));
     var sink = file.openWrite(mode: FileMode.writeOnlyAppend);
-    Stream<String> strings = data.map((x) => x.serialize());
+    Stream<String> strings = dataStream.map((x) => x.serialize());
+    strings = strings.map((str) => '${str.trim()}\n'); // one per line
 
     var operation = sink
         .addStream(strings.transform(utf8.encoder))
         .then((v) async {
-          sink.close();
-          var length = await file.length();
-          print('[DataStoreEntry] file closed for $sensor, length is $length');
-          if (length == 0) {
-            await file.delete();
-            print('[DataStoreEntry] 0-length $sensor file deleted');
-          }
-        });
-
-    _recordingOps = _recordingOps.then((v) async => await operation);
-  }
-
-  Future<bool> delete() async {
-    try {
-      print('[DataStoreEntry] waiting for operations to finish (${_trip.mode})');
-      await _recordingOps;
-      print('[DataStoreEntry] operations finished, deleting this entry (${_trip.mode})');
-      _dir.deleteSync(recursive: true);
-      return true;
-    } on Exception catch (e) {
-      print(e);
-      return false;
-    }
-  }
-
-  Future<bool> save(DateTime end) async {
-    _trip.end = end;
-    final destPath = await _folderPath(_trip);
-    print('[DataStoreEntry] waiting for operations to finish (${_trip.mode})');
-    await _recordingOps;
-    print('[DataStoreEntry] operations finished, renaming this entry (${_trip.mode})');
-    _dir.renameSync(destPath);
-    return true;
-  }
-
-  Stream<String> readHistory(Sensor sensor) {
-    final destPath = _filepath(_trip, sensor, _dir.path);
-    var inputStream = File(destPath).openRead();
-    return inputStream.transform(utf8.decoder).transform(LineSplitter());
-  }
-}
-
-
-class DataStore implements ExplorerBackend {
-
-  Future<DataStoreEntry> getEntry(Trip t) async {
-    t.end = t.end ?? t.start;
-    var tripDirectory = await _folderPath(t);
-    var dir = Directory(tripDirectory);
-    dir.createSync();
-    return DataStoreEntry._make(t, dir);
-  }
-
-  Future<List<ExplorerItem>> trips() async {
-    var items = (await _dataDirectory()).listSync();
-    var fullItems = (await _dataDirectory()).listSync(recursive: true);
-    print('[DataProvider] available items:');
-    print('\t' + fullItems.join('\n\t'));
-    print('---------------------------');
-    var trips = <ExplorerItem>[];
-    for (var item in items) {
-      try {
-        trips.add(_makeTrip(item));
-      } on Exception {
-        print('[DataProvider] Skipped ${item.path}');
+      sink.close();
+      var length = await file.length();
+      print('[DataStoreEntry] file closed for $s, length is $length');
+      if (length == 0) {
+        await file.delete();
+        print('[DataStoreEntry] 0-length $s file deleted');
       }
-    }
-    return trips;
+    });
   }
 
-  @override
-  Future<bool> delete(ExplorerItem item) async {
-    var entry = await getEntry(item);
-    return await entry.delete();
+  Future<int> nbEvents(Trip t, Sensor s) async {
+    var file = File(await _filePath(t, s));
+    return file.readAsStringSync().split('\n').length;
   }
 
+  //----------------------------------------------------------------------------
 
+  Future<void> _makeTripDirectory(Trip t) async {
+    var dir = Directory(await _dirPath(t));
+    dir.createSync();
+  }
 }
 
-// ---------------------------------------------------------------------------
-
-const _sensorNames = {
+final _sensorNames = {
   Sensor.gps: 'gps',
   Sensor.accelerometer: 'accel',
 };
 
-final _sensorFromName = _sensorNames.map((k,v) => MapEntry(v, k));
-
-Future<Directory> _dataDirectory() async {
+Future<Directory> _rootDir() async {
   final dir = await plugin.getApplicationDocumentsDirectory();
   final dataDir = Directory(dir.path + '/data');
   return dataDir.create();
 }
 
-ExplorerItem _makeTrip(FileSystemEntity item) {
-  var filename = item.path
-      .split('/')
-      .last;
-  var parts = filename.split('_');
-  var result = ExplorerItem();
-  result.mode = ModeRoute.fromRoute('/' + parts[0]);
-  result.start = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[1]));
-  result.end = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[2]));
-
-  var dir = item as Directory;
-  List<FileSystemEntity> files = dir.listSync();
-  var sizes = files.map((e) => e.statSync().size);
-  result.nbSensors = files.length;
-  result.sizeOnDisk = (sizes.isEmpty) ? 0 : sizes.reduce((a,b) => a + b);
-  result.nbEvents = (Sensor sensor) async {
-    var path = _filepath(result, sensor, dir.path);
-    try {
-      return File(path).readAsStringSync().length;
-    } on FileSystemException {
-      return -1;
-    }
-  };
-  return result;
-}
-
-Future<String> _folderPath(Trip trip) async {
-  var dir = await _dataDirectory();
+Future<String> _dirPath(Trip trip) async {
+  var root = await _rootDir();
   var name = [
-        trip.mode.route,
-        trip.start.millisecondsSinceEpoch.toString(),
-        trip.end.millisecondsSinceEpoch.toString(),
-      ].join('_');
-  return '${dir.path}/$name';
+    trip.mode.value,
+    trip.start.millisecondsSinceEpoch.toString(),
+  ].join('_');
+  return '${root.path}/$name';
 }
 
-String _filepath(Trip trip, Sensor sensor, String folderPath) {
+Future<String> _endPath(Trip trip) async {
+  return (await _dirPath(trip) + '/end.txt');
+}
+
+Trip _readTrip(String path) {
+  try {
+    var name = path.split('/').last;
+    var parts = name.split('_');
+    if (parts.length != 2) throw Exception('bad data');
+    var t = Trip();
+    t.mode = ModeValue.fromValue(parts[0]);
+    t.start = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[1]));
+    if (t.mode == null) throw Exception('trip mode is null');
+    if (t.start == null) throw Exception('trip start is null');
+    return t;
+  } on Exception catch (e) {
+    print(e);
+    return null;
+  }
+}
+
+Future<String> _filePath(Trip trip, Sensor sensor) async {
+  var tripDir = await _dirPath(trip);
   var filename = _sensorNames[sensor];
-  return '$folderPath/$filename.csv';
+  return '$tripDir/$filename.csv';
 }

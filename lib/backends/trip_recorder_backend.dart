@@ -4,9 +4,9 @@ import 'package:async/async.dart';
 import 'package:accelerometertest/backends/gps_auth.dart';
 
 import '../boundaries/data_store.dart';
-import 'sensor_data_provider.dart';
-import '../models.dart' show Modes, Sensor, Trip;
-import '../widgets/trip_recorder_widget.dart' show TripRecorderBackend;
+import '../boundaries/sensor_data_provider.dart';
+import '../models.dart' show Mode, Sensor, Trip;
+import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 import '../boundaries/location_provider.dart' show LocationData;
 
 class TripRecorderBackendImpl implements TripRecorderBackend {
@@ -14,31 +14,28 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   DataStore _storage;
   GPSAuth gpsAuth;
   Trip _trip;
-  DataStoreEntry _entry;
-  Completer __recording;
+  Completer<DateTime> _tripEnd;
 
   TripRecorderBackendImpl(this._providers, this.gpsAuth, this._storage);
 
   @override
-  Future<bool> start(Modes tripMode) async {
+  Future<bool> start(Mode tripMode) async {
     _trip = Trip();
     _trip.mode = tripMode;
     _trip.start = DateTime.now();
-    _entry = await _storage.getEntry(_trip);
-    __recording = Completer();
+    _tripEnd = Completer();
 
     for (var sensor in _providers.keys) {
       var provider = _providers[sensor];
       print('[TripRecorder] startRecording for $sensor');
-      _entry.record(sensor, recorderStream(provider.stream, sensor.toString()));
+      _storage.recordData(_trip, sensor, recorderStream(provider.stream, sensor.toString()));
     }
     return Future.value(true);
   }
 
   void stop() {
-    if (!__recording.isCompleted) {
-      _trip.end = DateTime.now();
-      __recording.complete(true);
+    if (!_tripEnd.isCompleted) {
+      _tripEnd.complete(DateTime.now());
     }
   }
 
@@ -46,19 +43,21 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   Future<bool> save() async {
     print('[TripRecorder] save()');
     stop();
-    return await _entry.save(DateTime.now());
+    var tripEnd = await _tripEnd.future;
+    await _storage.save(_trip, tripEnd);
+    return true;
   }
 
   @override
   Future<void> cancel() async {
     print('[TripRecorder] cancel()');
     stop();
-    await _entry.delete();
+    await _storage.delete(_trip);
   }
 
   @override
   void dispose() {
-    if (!__recording.isCompleted) {
+    if (!_tripEnd.isCompleted) {
       stop();
       print('[TripRecorder] dispose(): not exited properly.');
     }
@@ -73,7 +72,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     // Provider won't close stream
     // So, this function wraps the Provider's streams and closes when
     // recording is done.
-    Stream<T> done = __recording.future.asStream().map((e) => null);
+    Stream<T> done = _tripEnd.future.asStream().map((e) => null);
     return StreamGroup.merge<T>([done, input]).takeWhile((e) => e != null);
   }
 
