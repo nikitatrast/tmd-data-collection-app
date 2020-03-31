@@ -3,8 +3,10 @@ import 'package:filesize/filesize.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../backends/upload_manager.dart' show UploadStatus;
 import '../pages/explorer_page.dart' show ExplorerItem, ExplorerItemView;
 import '../widgets/modes_view.dart' show ModeIcon;
+import '../widgets/upload_status_view.dart';
 import '../utils.dart' show StringExtension;
 
 class ExplorerItemTile extends StatelessWidget {
@@ -17,6 +19,8 @@ class ExplorerItemTile extends StatelessWidget {
   final leading;
   final onTap;
   final onLongPress;
+  final onUpload;
+  final onCancelUpload;
 
   ExplorerItemTile({
     this.item,
@@ -25,6 +29,8 @@ class ExplorerItemTile extends StatelessWidget {
     this.onChanged,
     this.onTap,
     this.onLongPress,
+    this.onUpload,
+    this.onCancelUpload,
   })
   : title = _makeTitle(item)
   , subtitle = _makeSubtitle(item)
@@ -53,7 +59,29 @@ class ExplorerItemTile extends StatelessWidget {
     }
   }
 
-  Widget _trailing(BuildContext context) => null;
+  Widget _trailing(BuildContext context) =>
+      ChangeNotifierProvider.value(
+          value:item.status,
+          child: Consumer<ValueNotifier<UploadStatus>>(
+              builder: (context, _, __) => _makeTrailing(context)
+          )
+      );
+
+  IconButton _makeTrailing(BuildContext context) {
+    var action;
+    if (item.status.value == UploadStatus.local) {
+      action = onUpload;
+    } else {
+      action = onCancelUpload;
+    }
+
+    var i = item.status.value.iconData;
+    return IconButton(
+      icon: Opacity(opacity: 0.6, child: Icon(item.status.value.iconData, size: 30)),
+      color: item.status.value.iconColor,
+      onPressed: action,
+    );
+  }
 }
 
 Widget _makeTitle(item) {

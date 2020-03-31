@@ -3,14 +3,14 @@ import 'package:flutter/cupertino.dart';
 import '../boundaries/connectivity.dart';
 import '../boundaries/preferences_provider.dart' show CellularNetworkAllowed;
 
-enum SyncStatus { uploading, done, awaitingNetwork, serverDown }
+enum NetworkStatus { online, offline }
 
-class SyncManager {
-  ValueNotifier<SyncStatus> status = ValueNotifier<SyncStatus>(null);
+class NetworkManager {
+  ValueNotifier<NetworkStatus> status = ValueNotifier(NetworkStatus.offline);
   ValueNotifier<ConnectivityStatus> connectivity = ConnectivityNotifier();
   CellularNetworkAllowed auth;
 
-  SyncManager(this.auth) {
+  NetworkManager(this.auth) {
     auth.addListener(this._updateSyncStatus);
     connectivity.addListener(this._updateSyncStatus);
   }
@@ -30,9 +30,9 @@ class SyncManager {
 
   void _updateSyncStatus() {
     if (_networkAvailable) {
-      status.value = SyncStatus.done;
+      status.value = NetworkStatus.online;
     } else {
-      status.value = SyncStatus.awaitingNetwork;
+      status.value = NetworkStatus.offline;
     }
   }
 }

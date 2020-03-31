@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 import '../models.dart' show Trip, Sensor;
 import '../widgets/modes_view.dart' show ModeIcon;
 
+import '../backends/upload_manager.dart' show UploadStatus;
 
 abstract class ExplorerBackend {
   Future<List<ExplorerItem>> items();
   Future<bool> delete(ExplorerItem item);
   Future<int> nbEvents(ExplorerItem item, Sensor s);
+  void scheduleUpload(ExplorerItem item);
+  void cancelUpload(ExplorerItem item);
 }
 
 class ExplorerItem extends Trip {
   DateTime end;
   int sizeOnDisk;
   int nbSensors;
+  ValueNotifier<UploadStatus> status;
 
   String get formattedDuration {
     var d = this.end.difference(this.start);
@@ -79,6 +83,8 @@ class ExplorerPageState extends State<ExplorerPage> {
                     onChanged: (checked) => _itemSelected(item, checked),
                     onTap: () => widget.openInfoPage(item),
                     onLongPress: () => _itemSelected(item, true),
+                    onUpload: () => _uploadItem(context, item),
+                    onCancelUpload: () => widget.backend.cancelUpload(item),
                   ),
               ],
             )),
@@ -122,6 +128,22 @@ class ExplorerPageState extends State<ExplorerPage> {
     var allOk = await results.reduce((a, b) async => await a && await b);
     setState(() {});
     return allOk;
+  }
+
+  void _uploadItem(BuildContext context, ExplorerItem item) {
+    var scaffold = Scaffold.of(context);
+    scaffold.hideCurrentSnackBar();
+    scaffold.showSnackBar(SnackBar(
+      content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(item.mode.iconData),
+            Text("  Le trajet sera envoyé au serveur  "),
+            Icon(Icons.cloud_upload),
+          ]
+      ),
+    ));
+    widget.backend.scheduleUpload(item);
   }
 
   void _deleteDialog(BuildContext context) {

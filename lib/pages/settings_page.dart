@@ -17,7 +17,6 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(GPSPref.values.map((v) => v.value).toList());
     return Scaffold(
       appBar: AppBar(
         title: Text('Réglages'),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../backends/sync_manager.dart' show SyncStatus;
+import '../backends/upload_manager.dart' show SyncStatus;
 
 class SyncStatusWidget extends StatelessWidget {
   @override

@@ -3,18 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'backends/network_manager.dart';
 import 'boundaries/sensor_data_provider.dart';
 import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
 import 'boundaries/location_provider.dart';
 import 'boundaries/preferences_provider.dart';
+import 'boundaries/uploader.dart';
 
 import 'backends/trip_recorder_backend.dart';
-import 'backends/sync_manager.dart';
 import 'backends/gps_auth.dart';
 import 'backends/explorer_backend.dart';
 
+import 'backends/upload_manager.dart';
 import 'models.dart' show enabledModes, Sensor;
 
 import 'pages/trip_selector_page.dart';
@@ -28,7 +30,8 @@ import 'widgets/modes_view.dart' show ModeRoute;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var prefs = PreferencesProvider();
-  var sync = SyncManager(prefs.cellularNetwork);
+  var uploader = Uploader();
+  var network = NetworkManager(prefs.cellularNetwork);
   var storage = DataStore();
   var battery = BatteryNotifier();
   var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
@@ -36,15 +39,17 @@ void main() async {
     Sensor.gps: LocationProvider(gpsAuth),
     Sensor.accelerometer: AccelerationProvider()
   };
+  var uploadManager = UploadManager(storage, network.status, uploader);
+  uploadManager.start();
 
   runApp(MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: gpsAuth),
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
-      ChangeNotifierProvider.value(value: sync.status),
+      ChangeNotifierProvider.value(value: uploadManager.syncStatus),
       Provider<ExplorerBackend>.value(
-          value: ExplorerBackendImpl(storage)),
+          value: ExplorerBackendImpl(storage, uploadManager)),
       Provider<TripRecorderBackendImpl>(
           create: (_) => TripRecorderBackendImpl(
               sensorDataProviders, gpsAuth, storage)),

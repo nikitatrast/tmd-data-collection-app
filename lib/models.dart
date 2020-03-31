@@ -15,10 +15,19 @@ extension ModeValue on Mode {
 
 class Trip {
   DateTime start;
-  //DateTime end;
   Mode mode;
 
   String toString() => 'Trip($mode à ${start.toIso8601String()})';
+
+  @override
+  bool operator==(dynamic that) {
+    return (that is Trip) && (start == that.start) && (mode == that.mode);
+  }
+
+  @override
+  int get hashCode {
+    return start.hashCode ^ mode.hashCode;
+  }
 }
 
 abstract class Serializable {
@@ -26,3 +35,7 @@ abstract class Serializable {
 }
 
 enum Sensor { accelerometer, gps }
+
+extension SensorValue on Sensor {
+  String get value => this.toString().split('.').last;
+}

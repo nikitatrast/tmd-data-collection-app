@@ -13,6 +13,13 @@ class TripInfo {
   int sizeOnDisk;
 }
 
+class RecordedData {
+  int length;
+  Stream<List<int>> bytes;
+
+  RecordedData(this.length, this.bytes);
+}
+
 class DataStore {
   Future<List<Trip>> trips() async {
     var root = await _rootDir();
@@ -22,20 +29,31 @@ class DataStore {
   }
 
   Future<TripInfo> getInfo(Trip t) async {
-    var info = TripInfo();
-    var dir = Directory(await _dirPath(t));
-    var getSize = (FileSystemEntity file) => file.statSync().size;
-    info.trip = t;
-    info.end = DateTime.fromMillisecondsSinceEpoch(
-        int.parse(await File(await _endPath(t)).readAsString())
-    );
-    info.nbSensors = (await Future.wait(Sensor.values.map((sensor) async {
-      var file = File(await _filePath(t, sensor));
-      return file.existsSync() ? 1 : 0;
-    }))).sum;
-    info.sizeOnDisk = dir.listSync(recursive: true).map(getSize).sum;
-
-    return info;
+    try {
+      var info = TripInfo();
+      var dir = Directory(await _dirPath(t));
+      var getSize = (FileSystemEntity file) =>
+      file
+          .statSync()
+          .size;
+      info.trip = t;
+      info.end = DateTime.fromMillisecondsSinceEpoch(
+          int.parse(await File(await _endPath(t)).readAsString())
+      );
+      info.nbSensors = (await Future.wait(Sensor.values.map((sensor) async {
+        var file = File(await _filePath(t, sensor));
+        return file.existsSync() ? 1 : 0;
+      }))).sum;
+      info.sizeOnDisk = dir
+          .listSync(recursive: true)
+          .map(getSize)
+          .sum;
+      return info;
+    } on FileSystemException catch (e) {
+      //print('[DataStore] getInfo(Trip) exception: ');
+      //print(e);
+      return null;
+    }
   }
 
   Future<bool> delete(Trip t) async {
@@ -68,6 +86,27 @@ class DataStore {
         print('[DataStoreEntry] 0-length $s file deleted');
       }
     });
+  }
+
+  Future<RecordedData> readData(Trip t, Sensor s) async {
+    var file = File(await _filePath(t, s));
+    return RecordedData(
+      file.lengthSync(),
+      file.openRead()
+    );
+  }
+
+  Future<void> saveMeta(Trip t, String key, String content) async {
+    var file = File(await _metaPath(t, key));
+    file.writeAsStringSync(content);
+  }
+
+  Future<String> readMeta(Trip t, String key) async {
+    var file = File(await _metaPath(t, key));
+    if (file.existsSync())
+      return file.readAsStringSync();
+    else
+      return null;
   }
 
   Future<int> nbEvents(Trip t, Sensor s) async {
@@ -107,18 +146,25 @@ Future<String> _endPath(Trip trip) async {
   return (await _dirPath(trip) + '/end.txt');
 }
 
+Future<String> _metaPath(Trip trip, String key) async {
+  return (await _dirPath(trip) + '/$key.meta');
+}
+
 Trip _readTrip(String path) {
   try {
     var name = path.split('/').last;
     var parts = name.split('_');
-    if (parts.length != 2) throw Exception('bad data');
+    if (parts.length != 2) {
+      File(path).delete(recursive: true);
+      throw Exception('[DataStore] Unexpected filename encountered, skipped');
+    }
     var t = Trip();
-    t.mode = ModeValue.fromValue(parts[0]);
-    t.start = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[1]));
-    if (t.mode == null) throw Exception('trip mode is null');
-    if (t.start == null) throw Exception('trip start is null');
-    return t;
-  } on Exception catch (e) {
+      t.mode = ModeValue.fromValue(parts[0]);
+      t.start = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[1]));
+      if (t.mode == null) throw Exception('trip mode is null');
+      if (t.start == null) throw Exception('trip start is null');
+      return t;
+    } on Exception catch (e) {
     print(e);
     return null;
   }
