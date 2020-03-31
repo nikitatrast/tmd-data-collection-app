@@ -1,3 +1,4 @@
+import 'package:accelerometertest/pages/info_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -42,7 +43,8 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: sync.status),
-      Provider<ExplorerBackend>.value(value: ExplorerBackendImpl(storage)),
+      Provider<ExplorerBackend>.value(
+          value: ExplorerBackendImpl(storage)),
       Provider<TripRecorderBackendImpl>(
           create: (_) => TripRecorderBackendImpl(
               sensorDataProviders, gpsAuth, storage)),
@@ -92,7 +94,10 @@ class MyApp extends StatelessWidget {
                 () => Navigator.of(context).pushNamed('/data-explorer'),
               ),
           '/data-explorer': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) => ExplorerPage(backend)),
+              builder: (context, backend, _) => ExplorerPage(
+                  backend, (item) => Navigator.of(context).pushNamed('/info', arguments: item))),
+          '/info': (context) => Consumer<ExplorerBackend>(
+              builder: (context, backend, _) => InfoPage(backend, ModalRoute.of(context).settings.arguments)),
         });
   }
 }
