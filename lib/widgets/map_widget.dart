@@ -68,6 +68,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         mapController: mapController,
         options: new MapOptions(
           center: new LatLng(46.526977, 6.629825),
+          onPositionChanged: _onPositionChanged,
           zoom: 16.0,
         ),
         layers: [
@@ -89,7 +90,6 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
                 if (viewMode == ViewModes.center) {
                   viewMode = ViewModes.free;
                 } else {
-                  viewMode = ViewModes.center;
                   centerView();
                 }
               },
@@ -108,7 +108,6 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
                 if (viewMode == ViewModes.trip) {
                   viewMode = ViewModes.free;
                 } else {
-                  viewMode = ViewModes.trip;
                   fullTripView();
                 }
               },
@@ -127,6 +126,8 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
 
   void centerView() {
     mapController.move(lastLocation, 16.0);
+    if (viewMode != ViewModes.center)
+      setState(() => viewMode = ViewModes.center);
   }
 
   void fullTripView() {
@@ -136,6 +137,14 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         padding: EdgeInsets.only(left: 10, right: 25),
       ),
     );
+    if (viewMode != ViewModes.trip)
+      setState(() => viewMode = ViewModes.trip);
+  }
+
+  void _onPositionChanged(MapPosition position, bool hasGesture) {
+    if (hasGesture) {
+      setState(() => viewMode = ViewModes.free);
+    }
   }
 
   Marker firstMarker(LatLng point) {
