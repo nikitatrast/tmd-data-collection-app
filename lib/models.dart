@@ -26,7 +26,7 @@ class Trip {
 
   @override
   int get hashCode {
-    return start.hashCode ^ mode.hashCode;
+    return start.millisecondsSinceEpoch.hashCode ^ mode.hashCode;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:accelerometertest/pages/info_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -17,7 +18,7 @@ import 'backends/gps_auth.dart';
 import 'backends/explorer_backend.dart';
 
 import 'backends/upload_manager.dart';
-import 'models.dart' show enabledModes, Sensor;
+import 'models.dart' show Sensor, Trip, enabledModes;
 
 import 'pages/trip_selector_page.dart';
 import 'pages/settings_page.dart';
@@ -29,6 +30,12 @@ import 'widgets/modes_view.dart' show ModeRoute;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown
+  ]);
+
   var prefs = PreferencesProvider();
   var uploader = Uploader();
   var network = NetworkManager(prefs.cellularNetwork);
@@ -41,6 +48,7 @@ void main() async {
   };
   var uploadManager = UploadManager(storage, network.status, uploader);
   uploadManager.start();
+  storage.onNewTrip = uploadManager.scheduleUpload;
 
   runApp(MultiProvider(
     providers: [

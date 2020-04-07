@@ -114,6 +114,8 @@ class Uploader {
     if (!error) {
       for (var item in data.items) {
         UploadData itemData = await item();
+        if (itemData == null)
+          continue;
         CancelToken token = CancelToken();
         data.notifier.addListener(token.cancel);
         await _post(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -20,7 +21,22 @@ class RecordedData {
   RecordedData(this.length, this.bytes);
 }
 
-class DataStore {
+typedef NewTripCallback = void Function(Trip t);
+
+
+abstract class ReadOnlyStore{
+  Future<DateTime> getEnd(Trip t);
+  Future<TripInfo> getInfo(Trip t);
+  Future<int> nbEvents(Trip t, Sensor s);
+  Future<RecordedData> readData(Trip t, Sensor s);
+  Future<String> readMeta(Trip t, String key);
+  Future<List<Trip>> trips();
+}
+
+class DataStore implements ReadOnlyStore {
+  final _recordings = Map<Trip, List<Completer>>();
+  NewTripCallback onNewTrip = (Trip t) {};
+
   Future<List<Trip>> trips() async {
     var root = await _rootDir();
     var rawTrips = root.listSync().map((e) => _readTrip(e.path));
@@ -33,7 +49,15 @@ class DataStore {
     return trips;
   }
 
+  Future<void> awaitRecordingsEnded(Trip t) async {
+    var toAwait = _recordings[t];
+    if (toAwait != null) {
+      await Future.wait(toAwait.map((c) => c.future));
+    }
+  }
+
   Future<TripInfo> getInfo(Trip t) async {
+    await awaitRecordingsEnded(t);
     try {
       var info = TripInfo();
       var dir = Directory(await _dirPath(t));
@@ -53,13 +77,14 @@ class DataStore {
           .sum;
       return info;
     } on FileSystemException catch (e) {
-      //print('[DataStore] getInfo(Trip) exception: ');
-      //print(e);
+      print('[DataStore] getInfo(Trip) exception: ');
+      print(e);
       return null;
     }
   }
 
   Future<DateTime> getEnd(Trip t) async {
+    await awaitRecordingsEnded(t);
     if (t == null)
       return null;
     try {
@@ -72,6 +97,7 @@ class DataStore {
   }
 
   Future<bool> delete(Trip t) async {
+    await awaitRecordingsEnded(t);
     var path = await _dirPath(t);
     Directory(path).deleteSync(recursive: true);
     return true;
@@ -79,11 +105,18 @@ class DataStore {
 
   Future<void> save(Trip t, DateTime end) async {
     await _makeTripDirectory(t);
+    await awaitRecordingsEnded(t);
     var endFile = File(await _endPath(t));
     endFile.writeAsStringSync(end.millisecondsSinceEpoch.toString());
+
+    t.start = DateTime.fromMillisecondsSinceEpoch(t.start.millisecondsSinceEpoch);
+    onNewTrip(t);
   }
 
   Future<void> recordData(Trip t, Sensor s, Stream<Serializable> dataStream) async {
+    _recordings.putIfAbsent(t, () => <Completer>[]);
+    var c = Completer();
+    _recordings[t].add(c);
     await _makeTripDirectory(t);
     var file = File(await _filePath(t, s));
     var sink = file.openWrite(mode: FileMode.writeOnlyAppend);
@@ -100,15 +133,22 @@ class DataStore {
         await file.delete();
         print('[DataStoreEntry] 0-length $s file deleted');
       }
+      c.complete();
+      _recordings[t].remove(c);
     });
   }
 
   Future<RecordedData> readData(Trip t, Sensor s) async {
     var file = File(await _filePath(t, s));
-    return RecordedData(
-      file.lengthSync(),
-      file.openRead()
-    );
+    await awaitRecordingsEnded(t);
+    try {
+      return RecordedData(
+          file.lengthSync(),
+          file.openRead()
+      );
+    } on FileSystemException catch(e) {
+      return null;
+    }
   }
 
   Future<void> saveMeta(Trip t, String key, String content) async {
@@ -126,6 +166,7 @@ class DataStore {
 
   Future<int> nbEvents(Trip t, Sensor s) async {
     var file = File(await _filePath(t, s));
+    await awaitRecordingsEnded(t);
     return file.readAsStringSync().split('\n').length;
   }
 

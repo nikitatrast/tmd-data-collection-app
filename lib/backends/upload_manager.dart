@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:accelerometertest/boundaries/uploader.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:quiver/collection.dart';
 
 import '../backends/network_manager.dart' show NetworkStatus;
 import '../boundaries/data_store.dart';
@@ -16,15 +15,18 @@ enum SyncStatus {
 }
 
 class UploadManager {
-  DataStore _store;
-  Future<Map<Trip, _SourceNotifier>> _notifiers;
+  ReadOnlyStore _store;
+  SourceNotifierStore _notifiers;
   Map<Trip, _OutNotifier> _outNotifiers;
   PendingList _pendingUploads;
   Uploader _uploader;
   ValueNotifier<NetworkStatus> _networkStatus;
   ValueNotifier<SyncStatus> syncStatus = ValueNotifier<SyncStatus>(SyncStatus.done);
 
-  UploadManager(this._store, this._networkStatus, this._uploader) {
+  UploadManager(DataStore store, this._networkStatus, this._uploader)
+  : _store = store
+  {
+    _notifiers = SourceNotifierStore(this, store);
     _pendingUploads = PendingList(onChanged: () {
       _onUpdate('pending.changed');
     });
@@ -38,99 +40,78 @@ class UploadManager {
 
   void start() async {
     print('[UploadManager] Start');
-    _outNotifiers = {};
-    _notifiers = _loadFromStore().then((notifiers) {
-      for (var entry in notifiers.entries) {
-        if (entry.value.value == UploadStatus.pending)
-          _pendingUploads.add(entry.key);
-      }
-      return notifiers;
-    });
+    _notifiers.loadFromStore();
+    _outNotifiers = {}; // should reset each time _notifiers is reloaded
   }
 
   void scheduleUpload(Trip t) async {
-    var notifiers = await _notifiers;
-    notifiers.putIfAbsent(t, () => _SourceNotifier(this, t));
-    if (notifiers[t].value == UploadStatus.local) {
-      notifiers[t].value = UploadStatus.pending;
+    var notifier = await _notifiers[t];
+    if (notifier.value == UploadStatus.local) {
+      notifier.value = UploadStatus.pending;
     }
   }
 
   void cancelUpload(Trip t) async {
-    var notifiers = await _notifiers;
+    var notifier = await _notifiers[t];
     print('[UploadManager] Cancelling upload for $t');
-    notifiers[t].value = UploadStatus.local;
+    notifier.value = UploadStatus.local;
   }
   
-  ValueNotifier<UploadStatus> status(Trip t) {
+  _OutNotifier status(Trip t) {
     if (_outNotifiers.containsKey(t)) {
       return _outNotifiers[t];
     }
+    print('[UploadManager] outNotifier not found for $t');
+
     _outNotifiers[t] = _OutNotifier();
-    _notifiers.then((notifiers) {
-      notifiers.putIfAbsent(t, () => _SourceNotifier(this, t));
-      var source = notifiers[t];
-      _outNotifiers[t].value = source.value;
-      source.addListener(() => _outNotifiers[t].value = source.value);
+    _notifiers[t].then((notifier) {
+      print('[UploadManager] cabling outNotifier value for $t, ${notifier.value}');
+      _outNotifiers[t].value = notifier.value;
+      notifier.addListener(() => _outNotifiers[t].value = notifier.value);
     });
     return _outNotifiers[t];
   }
 
-  Future<Map<Trip, _SourceNotifier>> _loadFromStore() async {
-    var trips = await _store.trips();
-    var entries = trips.map((trip) async {
-      var str = await _store.readMeta(trip, 'upload');
-      if (str == null) {
-        return MapEntry(trip, _SourceNotifier(this, trip));
-      } else {
-        return MapEntry(trip, _SourceNotifier(this, trip, _parse[str]));
-      }
-    });
-    return Map.fromEntries(await Future.wait(entries));
-  }
+  void _onStatusChanged(Trip t, UploadStatus status) {
+    //Important:
+    //  keep the argument `status` with the status value that triggered thi call
+    //  there is no time to reload the current status value from _notifiers
+    //  because sometimes the value changes faster than the reload can happen
+    //  and key value might be missed
+    //
+    // _pendingUploads.add and .remove should be called ASAP, avoid await before
 
-  Future<void> _writeInStore(Trip t, UploadStatus status) {
-    // to restart upload in case of app crash,
-    //     store `pending` instead of `uploading`.
-    final rewrite = [UploadStatus.uploading, UploadStatus.error];
-    if (rewrite.contains(status)) {
-      status = UploadStatus.pending;
-    }
-    return _store.saveMeta(t, 'upload', _serialize[status]);
-  }
+    print('[UploadManager] statusChanged:: $status : $t');
 
-  void _onStatusChanged(Trip t) async {
-    var notifiers = await _notifiers;
-    var notifier = notifiers[t];
-    print('[UploadManager] ${notifier.value} : $t');
-
-    await _writeInStore(t, notifier.value);
-    notifier = notifiers[t];
-
-    if (notifier.value == UploadStatus.pending) {
+    if (status == UploadStatus.pending) {
       _pendingUploads.add(t);
     } else {
       _pendingUploads.remove(t);
     }
 
-    if (notifier.value == UploadStatus.error) {
-      // on error, wait 1mn before retry
+    if (status == UploadStatus.error) {
       print('[UploadManager] Waiting 1mn before retry');
-      Timer(Duration(minutes: 1), (){
+      Timer(Duration(minutes: 1), () async {
+        var notifier = await _notifiers[t];
         if (notifier.value == UploadStatus.error)
           notifier.value = UploadStatus.pending;
       });
     }
   }
 
-  Future<bool> _sendToUploader(Trip t, _SourceNotifier notifier) async {
+  Future<bool> _sendToUploader(Trip t) async {
+    var notifier = await _notifiers[t];
     var tripEnd = (await _store.getInfo(t)).end;
     var up = Upload(t, tripEnd, notifier);
 
     for (Sensor sensor in Sensor.values) {
       up.items.add(() async {
         var data = await _store.readData(t, sensor);
-        return UploadData(sensor.value, data.length, data.bytes);
+        if (data != null) {
+          return UploadData(sensor.value, data.length, data.bytes);
+        } else {
+          return null;
+        }
       });
     }
     return await _uploader.upload(up);
@@ -147,28 +128,30 @@ class UploadManager {
     if (_pendingUploads.isEmpty) {
       return SyncStatus.done;
     }
-
-    var notifiers = await _notifiers;
-
     // if network has gone off, cancel uploading
     if (_networkStatus.value != NetworkStatus.online) {
       print('[UploadManager] Network offline, stopping uploads (trigger: $trigger)');
-      for (var status in notifiers.values) {
+      for (var status in await _notifiers.values) {
         if (status.value == UploadStatus.uploading)
           status.value = UploadStatus.pending;
       }
       return SyncStatus.awaitingNetwork;
     }
-
     switch(_uploader.status.value) {
       case UploaderStatus.uploading:
         return SyncStatus.uploading;
 
       case UploaderStatus.ready:
         print('[UploadManager] Processing next pending request (trigger: $trigger)');
-        var trip = _pendingUploads.first;
-        _sendToUploader(trip, notifiers[trip]);
-        return SyncStatus.uploading;
+        var pendingList = List.from(_pendingUploads);
+        for (var trip in pendingList) {
+          var notifier = await _notifiers[trip];
+          if (notifier.value == UploadStatus.pending) {
+            _sendToUploader(trip);
+            return SyncStatus.uploading;
+          }
+        }
+        return SyncStatus.done;
 
       case UploaderStatus.offline:
         _uploader.start();
@@ -189,21 +172,10 @@ class UploadManager {
     }
     throw Exception('Not implemented');
   }
-
-  static final _serialize =
-  Map.fromEntries(
-      UploadStatus.values.map(
-              (v) => MapEntry(v, v.toString().split('.').last)
-      )
-  );
-
-  static final _parse = Map.fromEntries(
-      _serialize.entries.map((e) => MapEntry(e.value, e.key))
-  );
 }
 
 
-class PendingList {
+class PendingList extends Iterable{
   final _data = <Trip>[];
   final Function onChanged;
 
@@ -219,31 +191,74 @@ class PendingList {
       onChanged();
   }
 
-  Trip get first => _data.first;
   bool get isEmpty => _data.isEmpty;
   bool get isNotEmpty => _data.isNotEmpty;
+
+  @override
+  Iterator get iterator => _data.iterator;
 }
+
 
 class _OutNotifier extends ValueNotifier<UploadStatus> {
   _OutNotifier() : super(UploadStatus.unknown);
 }
 
-class _SourceNotifier extends ValueNotifier<UploadStatus> {
-  Trip _t;
 
-  _SourceNotifier(UploadManager uploader, this._t, [UploadStatus value])
-      : super(value ?? UploadStatus.pending)
-  {
-    this.addListener(() => uploader._onStatusChanged(this._t));
+class SourceNotifierStore {
+  Future<Map<Trip, ValueNotifier<UploadStatus>>> _notifiers;
+  final UploadManager _uploader;
+  final DataStore _store;
+  final _loaded = Completer<Map<Trip, ValueNotifier<UploadStatus>>>();
+  List<Trip> _created = [];
+
+  SourceNotifierStore(this._uploader, this._store) {
+     _notifiers = _loaded.future;
   }
 
-  @override
-  set value(UploadStatus newValue) {
-    _ensureAllowed(newValue);
-    super.value = newValue;
+  ValueNotifier<UploadStatus> _createNotifier(Trip t, [UploadStatus value]) {
+    assert(!_created.contains(t));
+    _created.add(t);
+
+    var n = ValueNotifier<UploadStatus>(value ?? UploadStatus.local);
+    n.addListener(() => _ensureValid(n.value));
+    n.addListener(() => _uploader._onStatusChanged(t, n.value));
+    n.addListener(() => writeInStore(t));
+    _uploader._onStatusChanged(t, n.value);
+    return n;
   }
 
-  void _ensureAllowed(UploadStatus value) {
+  Future<void> loadFromStore() async {
+    var trips = await _store.trips();
+    var notifiers = Map<Trip, ValueNotifier<UploadStatus>>();
+    for (var trip in trips) {
+      var str = await _store.readMeta(trip, 'upload');
+      notifiers[trip] = _createNotifier(trip, _parse[str]);
+    }
+    _loaded.complete(notifiers);
+  }
+
+  Future<void> writeInStore(Trip t) async {
+    // to restart upload in case of app crash,
+    //     store `pending` instead of `uploading`.
+    var status = (await this[t]).value;
+    final rewrite = [UploadStatus.uploading, UploadStatus.error];
+    if (rewrite.contains(status)) {
+      status = UploadStatus.pending;
+    }
+    return _store.saveMeta(t, 'upload', _serialize[status]);
+  }
+
+  Future<ValueNotifier<UploadStatus>> operator[](Trip t) async {
+    var notifiers = await _notifiers;
+    notifiers.putIfAbsent(t, () => _createNotifier(t));
+    return notifiers[t];
+  }
+
+  get values => _notifiers.then((n) => n.values);
+  get keys => _notifiers.then((n) => n.keys);
+
+  void _ensureValid(UploadStatus value) {
+    print('[SourceNotifier] setting new value: $value');
     if (value == UploadStatus.unknown) {
       throw Exception('SourceNotifier cannot hold unknown value');
     }
@@ -251,4 +266,14 @@ class _SourceNotifier extends ValueNotifier<UploadStatus> {
       throw Exception('SourceNotifier cannot hold null value');
     }
   }
+
+  static final _serialize = Map.fromEntries(
+      UploadStatus.values.map(
+              (v) => MapEntry(v, v.toString().split('.').last)
+      )
+  );
+
+  static final _parse = Map.fromEntries(
+      _serialize.entries.map((e) => MapEntry(e.value, e.key))
+  );
 }
