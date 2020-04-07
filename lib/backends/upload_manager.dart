@@ -92,7 +92,8 @@ class UploadManager {
   Future<void> _writeInStore(Trip t, UploadStatus status) {
     // to restart upload in case of app crash,
     //     store `pending` instead of `uploading`.
-    if (status == UploadStatus.uploading) {
+    final rewrite = [UploadStatus.uploading, UploadStatus.error];
+    if (rewrite.contains(status)) {
       status = UploadStatus.pending;
     }
     return _store.saveMeta(t, 'upload', _serialize[status]);
@@ -100,14 +101,25 @@ class UploadManager {
 
   void _onStatusChanged(Trip t) async {
     var notifiers = await _notifiers;
-    print('[UploadManager] ${notifiers[t].value} : $t');
+    var notifier = notifiers[t];
+    print('[UploadManager] ${notifier.value} : $t');
 
-    await _writeInStore(t, notifiers[t].value);
+    await _writeInStore(t, notifier.value);
+    notifier = notifiers[t];
 
-    if (notifiers[t].value == UploadStatus.pending) {
+    if (notifier.value == UploadStatus.pending) {
       _pendingUploads.add(t);
     } else {
       _pendingUploads.remove(t);
+    }
+
+    if (notifier.value == UploadStatus.error) {
+      // on error, wait 1mn before retry
+      print('[UploadManager] Waiting 1mn before retry');
+      Timer(Duration(minutes: 1), (){
+        if (notifier.value == UploadStatus.error)
+          notifier.value = UploadStatus.pending;
+      });
     }
   }
 
@@ -125,12 +137,12 @@ class UploadManager {
   }
 
   Future<void> _onUpdate(String trigger) async {
+    /// Helper with a non-void return type so that the compiler
+    /// will enforce that all code-path are handled and
+    /// syncStatus is updated correspondingly;
     syncStatus.value = await _onUpdateHelper(trigger);
   }
 
-  /// Helper with a non-void return type so that the compiler
-  /// will enforce that all code-path are handled and
-  /// syncStatus is updated correspondingly;
   Future<SyncStatus> _onUpdateHelper(String trigger) async {
     if (_pendingUploads.isEmpty) {
       return SyncStatus.done;
@@ -220,7 +232,7 @@ class _SourceNotifier extends ValueNotifier<UploadStatus> {
   Trip _t;
 
   _SourceNotifier(UploadManager uploader, this._t, [UploadStatus value])
-      : super(value ?? UploadStatus.local)
+      : super(value ?? UploadStatus.pending)
   {
     this.addListener(() => uploader._onStatusChanged(this._t));
   }

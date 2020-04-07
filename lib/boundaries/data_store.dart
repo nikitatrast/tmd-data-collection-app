@@ -23,9 +23,14 @@ class RecordedData {
 class DataStore {
   Future<List<Trip>> trips() async {
     var root = await _rootDir();
-    var trips = root.listSync().map((e) => _readTrip(e.path));
-    trips = trips.where((trip) => trip != null);
-    return trips.toList(growable: true);
+    var rawTrips = root.listSync().map((e) => _readTrip(e.path));
+    var trips = <Trip>[];
+    for (var raw in rawTrips) {
+      if (await getEnd(raw) != null) {
+        trips.add(raw);
+      }
+    }
+    return trips;
   }
 
   Future<TripInfo> getInfo(Trip t) async {
@@ -37,9 +42,7 @@ class DataStore {
           .statSync()
           .size;
       info.trip = t;
-      info.end = DateTime.fromMillisecondsSinceEpoch(
-          int.parse(await File(await _endPath(t)).readAsString())
-      );
+      info.end = await getEnd(t);
       info.nbSensors = (await Future.wait(Sensor.values.map((sensor) async {
         var file = File(await _filePath(t, sensor));
         return file.existsSync() ? 1 : 0;
@@ -52,6 +55,18 @@ class DataStore {
     } on FileSystemException catch (e) {
       //print('[DataStore] getInfo(Trip) exception: ');
       //print(e);
+      return null;
+    }
+  }
+
+  Future<DateTime> getEnd(Trip t) async {
+    if (t == null)
+      return null;
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(
+          int.parse(await File(await _endPath(t)).readAsString())
+      );
+    } on FileSystemException catch(e) {
       return null;
     }
   }
