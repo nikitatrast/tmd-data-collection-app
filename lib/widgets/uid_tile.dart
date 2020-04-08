@@ -18,7 +18,8 @@ class _UidTileState extends State<UidTile> {
                   if (!snapshot.hasData) {
                     return ListTile(
                         title: Text('UID'),
-                        subtitle: Text('Loading...')
+                        subtitle: Text('Loading...'),
+                        leading: Icon(Icons.perm_device_information, size: 40),
                     );
                   } else {
                     var data = snapshot.data;
@@ -27,6 +28,7 @@ class _UidTileState extends State<UidTile> {
                     return ListTile(
                         title: Text("${name ?? 'Anonyme'}"),
                         subtitle: Text("uid: ${uid ?? ''}"),
+                        leading: Icon(Icons.perm_device_information, size: 40),
                         onTap: () => confirmationDialog(context, store)
                     );
                   }
@@ -39,8 +41,8 @@ class _UidTileState extends State<UidTile> {
     showDialog(
         context: context,
         child: AlertDialog(
-            title: Text("Effacer les données ?"),
-            content: Text("Voulez-vous effacer votre UID ?"),
+            title: Text("Effacer ?"),
+            content: Text("Voulez-vous effacer votre UID ? Il faudra redémarrer l'application."),
             actions: [
               FlatButton(
                   child: Text('non'),

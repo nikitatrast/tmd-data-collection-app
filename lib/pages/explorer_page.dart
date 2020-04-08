@@ -57,7 +57,7 @@ class ExplorerPageState extends State<ExplorerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Données enregistrées'),
+        title: Text('Données locales'),
       ),
       body: Builder(builder: this._body),
     );
@@ -69,7 +69,7 @@ class ExplorerPageState extends State<ExplorerPage> {
           child: Text("Chargement en cours...", textAlign: TextAlign.center));
     } else if (items.isEmpty) {
       return Center(
-          child: Text("Aucun trajet enregistré", textAlign: TextAlign.center));
+          child: Text("Tous les trajets ont été envoyés au serveur.", textAlign: TextAlign.center));
     } else {
       return Column(mainAxisSize: MainAxisSize.max, children: [
         Expanded(

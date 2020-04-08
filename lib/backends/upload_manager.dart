@@ -14,17 +14,21 @@ enum SyncStatus {
   uploading, done, awaitingNetwork, serverDown
 }
 
+typedef UploadedCallback = void Function(Trip);
+
 class UploadManager {
   ReadOnlyStore _store;
   SourceNotifierStore _notifiers;
   Map<Trip, _OutNotifier> _outNotifiers;
   PendingList _pendingUploads;
   Uploader _uploader;
+  UploadedCallback uploadedCallback;
   ValueNotifier<NetworkStatus> _networkStatus;
   ValueNotifier<SyncStatus> syncStatus = ValueNotifier<SyncStatus>(SyncStatus.done);
 
   UploadManager(DataStore store, this._networkStatus, this._uploader)
   : _store = store
+  , uploadedCallback = store.delete
   {
     _notifiers = SourceNotifierStore(this, store);
     _pendingUploads = PendingList(onChanged: () {
@@ -96,6 +100,11 @@ class UploadManager {
         if (notifier.value == UploadStatus.error)
           notifier.value = UploadStatus.pending;
       });
+    }
+
+    if (status == UploadStatus.uploaded) {
+      print('[UploadManager] uploadedCallback( $t )');
+      Timer(Duration(seconds:1), () => uploadedCallback(t));
     }
   }
 

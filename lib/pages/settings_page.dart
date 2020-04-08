@@ -29,6 +29,7 @@ class SettingsPage extends StatelessWidget {
       ListView(
           shrinkWrap: true,
           children: ListTile.divideTiles(context: context, tiles: [
+            UidTile(),
             GpsAuthTile(),
             LoadingSwitchTile<CellularNetworkAllowed>(
               title: const Text('Synchronisation 3G'),
@@ -36,15 +37,13 @@ class SettingsPage extends StatelessWidget {
               secondary: const Icon(Icons.wifi, size: 40),
             ),
             ListTile(
-                title: Text("Afficher les données enregistrées"),
+                title: Text("Afficher les données locales"),
                 leading: Icon(Icons.insert_drive_file, size: 40),
                 trailing: Icon(Icons.arrow_forward_ios),
                 onTap: openDataExplorer)
           ]).toList()),
       Divider(),
       Expanded(child: Container()),
-      Divider(),
-      UidTile(),
       Divider(),
       Consumer<GPSAuth>(
           builder: (context, auth, _) => ListTile(
