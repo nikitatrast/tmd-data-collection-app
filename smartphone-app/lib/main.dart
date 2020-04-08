@@ -47,9 +47,7 @@ void main() async {
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
 
-  final onStartup = () {
-    uploadManager.start();
-  };
+  uploadManager.start();
 
   runApp(MultiProvider(
     providers: [
@@ -64,14 +62,12 @@ void main() async {
           create: (_) =>
               TripRecorderBackendImpl(sensorDataProviders, gpsAuth, storage)),
     ],
-    child: MyApp(onStartup),
+    child: MyApp(),
   ));
 }
 
 class MyApp extends StatelessWidget {
-  final VoidCallback onStartup;
-
-  MyApp(this.onStartup) {
+  MyApp() {
     initializeDateFormatting('fr_FR', null);
   }
 
@@ -86,7 +82,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
         title: 'TMD data collection',
         theme: ThemeData(primarySwatch: Colors.blue),
-        initialRoute: '/register',
+        initialRoute: '/initial',
         routes: {
           for (var mode in enabledModes)
             mode.route: (context) => Consumer<TripRecorderBackendImpl>(
@@ -97,16 +93,7 @@ class MyApp extends StatelessWidget {
                         .pushReplacementNamed('/selection'),
                   ),
                 ),
-          '/selection': (context) => TripSelectorPage(
-                modes: enabledModes,
-                actions: {
-                  for (var em in enabledModes)
-                    em: () =>
-                        Navigator.of(context).pushReplacementNamed(em.route)
-                },
-                settingsAction: () =>
-                    Navigator.of(context).pushNamed('/settings'),
-              ),
+          '/selection': _tripSelectorPage,
           '/settings': (context) => SettingsPage(
                 () => Navigator.of(context).pushNamed('/data-explorer'),
               ),
@@ -118,14 +105,41 @@ class MyApp extends StatelessWidget {
           '/info': (context) => Consumer<ExplorerBackend>(
               builder: (context, backend, _) =>
                   InfoPage(backend, ModalRoute.of(context).settings.arguments)),
-          '/register': (context) =>
-              Consumer<UidStore>(
-                builder: (ctx, store, _) =>
-                  RegisterPage(store, () {
-                    this.onStartup();
-                    Navigator.of(ctx).pushReplacementNamed('/selection');
-                  })
-              ),
+          '/initial': (context) => Consumer<UidStore>(
+              builder: (context, store, _) => FutureBuilder(
+                  future: store.getLocalUid(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return _loadingPage(context);
+                    } else if (snapshot.data == null) {
+                      return _registerPage(context, store);
+                    } else {
+                      return _tripSelectorPage(context);
+                    }
+                  })),
         });
   }
+
+  Widget _tripSelectorPage(context) => TripSelectorPage(
+        modes: enabledModes,
+        actions: {
+          for (var em in enabledModes)
+            em: () => Navigator.of(context).pushReplacementNamed(em.route)
+        },
+        settingsAction: () => Navigator.of(context).pushNamed('/settings'),
+      );
+
+  Widget _registerPage(context, store) => RegisterPage(store, () {
+    Navigator.of(context)
+        .pushReplacementNamed('/selection');
+  });
+  
+  Widget _loadingPage(context) => Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: Container(
+            width: 100,
+            height: 100,
+            child: CircularProgressIndicator()),
+      )); 
 }

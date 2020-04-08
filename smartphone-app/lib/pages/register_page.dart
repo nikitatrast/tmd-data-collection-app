@@ -14,19 +14,10 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   TextEditingController controller;
-  bool showRegister = false;
 
   @override
   Widget build(BuildContext context) {
-    return (!showRegister)
-        ? Scaffold(
-            appBar: AppBar(title: Text('')),
-            body: Center(
-                child: Container(
-                    width: 200,
-                    height: 200,
-                    child: CircularProgressIndicator())))
-        : Scaffold(
+    return Scaffold(
             appBar: AppBar(
               title: Text('Bienvenue'),
             ),
@@ -57,22 +48,9 @@ class _RegisterPageState extends State<RegisterPage> {
             )));
   }
 
-  Future<void> chooseRoute() async {
-    var localUid = await widget.uidStore.getLocalUid();
-    print('[RegisterPage] localUid: $localUid');
-    if (localUid == null) {
-      showRegister = true;
-    } else {
-      widget.next();
-    }
-  }
-
   void initState() {
     super.initState();
     controller = TextEditingController();
-    // https://stackoverflow.com/questions/49457717/flutter-get-context-in-initstate-method
-    // https://stackoverflow.com/questions/44269909/flutter-redirect-to-a-page-on-initstate
-    Future.delayed(Duration.zero, chooseRoute);
   }
 
   void dispose() {

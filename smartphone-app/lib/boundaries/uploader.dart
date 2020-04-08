@@ -89,25 +89,31 @@ class Uploader {
   }
 
   Future<void> start() async {
-    print('[Uploader] Sending connection request to server');
-    var dio = await _dio;
-    var uid = await uidStore.getUid();
+    var localUid = await uidStore.getLocalUid();
+    if (localUid == null) {
+      status.value = UploaderStatus.offline;
+      return;
+    }
 
+    var uid = await uidStore.getUid();
     if (uid == null) {
       await register();
-    } else {
-      await dio.get(await _helloUrl, options: Options(
-        sendTimeout: 300,
-        receiveTimeout: 300,
-      )).then((r) {
-        print('[Uploader] Connection request success, back online.');
-        status.value = UploaderStatus.ready;
-      }).catchError((e) {
-        print('[Uploader] Connection request failed, Uploader offline.');
-        print(e);
-        status.value = UploaderStatus.offline;
-      });
+      return;
     }
+
+    var dio = await _dio;
+    print('[Uploader] Sending connection request to server');
+    await dio.get(await _helloUrl, options: Options(
+      sendTimeout: 300,
+      receiveTimeout: 300,
+    )).then((r) {
+      print('[Uploader] Connection request success, back online.');
+      status.value = UploaderStatus.ready;
+    }).catchError((e) {
+      print('[Uploader] Connection request failed, Uploader offline.');
+      print(e);
+      status.value = UploaderStatus.offline;
+    });
   }
 
   Future<void> register() async {
