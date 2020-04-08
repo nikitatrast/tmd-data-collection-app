@@ -4,3 +4,4 @@ app/__pycache__
 .env
 app/data
 .vscode
+traefik/config/*.*.toml

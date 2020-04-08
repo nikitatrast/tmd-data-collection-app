@@ -1,0 +1,11 @@
+# dynamic configuration:
+#    routers
+#    middlewares
+#    services
+#    tls
+
+[tls.options]
+  [tls.options.default]
+    [tls.options.default.clientAuth]
+      caFiles = ["/certificates/client-ca.pem"]
+      clientAuthType = "RequireAndVerifyClientCert"

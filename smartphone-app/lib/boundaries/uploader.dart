@@ -7,17 +7,11 @@ import 'package:dio/adapter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
-import 'package:slugify/slugify.dart';
 import 'package:device_info/device_info.dart';
 
 import '../models.dart' show Trip, ModeValue;
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../boundaries/preferences_provider.dart' show UidStore;
-
-const HOST = 'https://192.168.1.143:4430';
-const UPLOAD_URL = '$HOST/upload';
-const HELLO_URL = '$HOST/hello';
-const REGISTER_URL = '$HOST/register';
 
 enum UploaderStatus {
   offline, ready, uploading
@@ -49,8 +43,8 @@ class Certificates {
 
   static Future<Certificates> get() async {
     var serverCA = await ((Platform.isAndroid)
-        ? rootBundle.load('assets/certificates/CA.pem')
-        : rootBundle.load('assets/certificates/CA.der'));
+        ? rootBundle.load('assets/certificates/server-ca.pem')
+        : rootBundle.load('assets/certificates/server-ca.der'));
     var clientKey = await rootBundle.load('assets/certificates/client.key');
     var clientCA = await rootBundle.load('assets/certificates/client.pem');
 
@@ -102,7 +96,7 @@ class Uploader {
     if (uid == null) {
       await register();
     } else {
-      await dio.get(HELLO_URL, options: Options(
+      await dio.get(await _helloUrl, options: Options(
         sendTimeout: 300,
         receiveTimeout: 300,
       )).then((r) {
@@ -126,7 +120,7 @@ class Uploader {
       localUid = '';
     }
 
-    await dio.post(REGISTER_URL,
+    await dio.post(await _registerUrl,
       data: FormData.fromMap({
         'uid': localUid,
         'info': deviceInfo
@@ -199,7 +193,7 @@ class Uploader {
       "data": MultipartFile(itemData.content, itemData.contentLength, filename:itemData.tag),
     });
     return dio.post(
-      UPLOAD_URL,
+      await _uploadUrl,
       data: formData,
       cancelToken: token,
     ).catchError((e) {
@@ -259,4 +253,13 @@ class Uploader {
     });
   }
 
+  Future<String> _host = () async {
+    var encoded = await rootBundle.loadString('assets/server-info.json');
+    var info = json.decode(encoded);
+    return 'https://${info["domain"]}:${info["port"]}';
+  }();
+
+  Future<String> get _uploadUrl async => '${await _host}/upload';
+  Future<String> get _helloUrl async => '${await _host}/hello';
+  Future<String> get _registerUrl async => '${await _host}/register';
 }

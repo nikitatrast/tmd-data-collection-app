@@ -63,18 +63,19 @@ def format(milliseconds):
     datetime.datetime.fromtimestamp(float(milliseconds)/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 
-UID_FILEPATH = '/app/data/uids.json'
+UID_FILEPATH = Path('/app/data/uids.json')
 
 
 def load_uids():
     try:
-        return json.load(open(UID_FILEPATH, 'r'))
+        return json.load(UID_FILEPATH.open('r'))
     except FileNotFoundError:
         return {}
 
 
 def dumpUIDs(uids):
-    json.dump(uids, open(UID_FILEPATH, 'w'))
+    UID_FILEPATH.parent.mkdir(exist_ok=True, parents=True)
+    json.dump(uids, UID_FILEPATH.open('w'))
 
 
 def find_new_candidate(token, uids):
