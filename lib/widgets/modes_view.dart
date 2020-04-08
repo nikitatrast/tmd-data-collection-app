@@ -6,6 +6,8 @@ extension ModeText on Mode {
     switch (this) {
       case Mode.walk:
         return "Marche à pied";
+      case Mode.run:
+        return "Course à pied";
       case Mode.bike:
         return "Vélo";
       case Mode.motorcycle:
@@ -19,7 +21,7 @@ extension ModeText on Mode {
       case Mode.train:
         return "Train";
       default:
-        return null;
+        throw Exception("Not implemented");
     }
   }
 }
@@ -44,6 +46,8 @@ extension ModeIcon on Mode {
     switch (this) {
       case Mode.walk:
         return Icons.directions_walk;
+      case Mode.run:
+        return Icons.directions_run;
       case Mode.bike:
         return Icons.directions_bike;
       case Mode.motorcycle:
@@ -57,7 +61,7 @@ extension ModeIcon on Mode {
       case Mode.train:
         return Icons.directions_railway;
       default:
-        return null;
+        throw Exception("Not implemented");
     }
   }
 }
