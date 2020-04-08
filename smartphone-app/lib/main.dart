@@ -1,5 +1,3 @@
-import 'package:accelerometertest/pages/info_page.dart';
-import 'package:accelerometertest/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -19,12 +17,14 @@ import 'backends/gps_auth.dart';
 import 'backends/explorer_backend.dart';
 
 import 'backends/upload_manager.dart';
-import 'models.dart' show Sensor, Trip, enabledModes;
+import 'models.dart' show Sensor, enabledModes;
 
 import 'pages/trip_selector_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/explorer_page.dart';
 import 'pages/trip_recorder_page.dart';
+import 'pages/info_page.dart';
+import 'pages/register_page.dart';
 
 import 'widgets/modes_view.dart' show ModeRoute;
 
