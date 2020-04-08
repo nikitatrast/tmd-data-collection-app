@@ -115,7 +115,6 @@ class TripRecorderPageState extends State<TripRecorderPage> {
                   ),
                   ButtonBar(
                     children: <Widget>[
-                      OutlineButton(child: Text('Simuler'), onPressed: () {}),
                       RaisedButton(
                         child: Text('Enregistrer ce trajet'),
                         color: Colors.blue,
