@@ -1,14 +1,13 @@
-import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 
-import '../boundaries/preferences_provider.dart'
-    show CellularNetworkAllowed, GPSPref, GPSPrefValue;
+import '../backends/gps_auth.dart';
+import '../boundaries/preferences_provider.dart' show CellularNetworkAllowed;
 
 import '../widgets/gps_auth_tile.dart';
-
-import 'package:flutter/material.dart';
 import '../widgets/loading_switch_tile_widget.dart';
 import '../widgets/sync_status_widget.dart';
+import '../widgets//uid_tile.dart';
 
 class SettingsPage extends StatelessWidget {
   final Function openDataExplorer;
@@ -45,9 +44,13 @@ class SettingsPage extends StatelessWidget {
       Divider(),
       Expanded(child: Container()),
       Divider(),
+      UidTile(),
+      Divider(),
       Consumer<GPSAuth>(
           builder: (context, auth, _) => ListTile(
-            title: auth.value ? Text('Collecte GPS : autorisée') : Text('Collecte GPS : désactivée'),
+            title: auth.value
+                ? Text('Collecte GPS : autorisée')
+                : Text('Collecte GPS : désactivée'),
             trailing: Icon(auth.value ? Icons.done : Icons.not_interested),
           )
       ),

@@ -31,14 +31,56 @@ extension GPSPrefValue on GPSPref {
   })[this];
 }
 
+class UidStore {
+  Future<String> getLocalUid() async {
+    var s = await SharedPreferences.getInstance();
+    return s.getString(_keyLocalUid);
+  }
+
+  Future<void> setLocalUid(String localUid) async {
+    print('[UidStore] setLocalUid($localUid)');
+
+    var s = await SharedPreferences.getInstance();
+
+    if (localUid == null)
+      return s.remove(_keyLocalUid);
+
+    if (localUid == '')
+      localUid = 'not set';
+    await s.setString(_keyLocalUid, localUid);
+  }
+
+  Future<String> getUid() async {
+    var s = await SharedPreferences.getInstance();
+    return s.getString(_keyUid);
+  }
+
+  Future<void> setUid(String uid) async {
+    var s = await SharedPreferences.getInstance();
+
+    if (uid == null)
+      return s.remove(_keyUid);
+
+    if (uid == '')
+      throw Exception('UID cannot be empty');
+
+    await s.setString(_keyUid, uid);
+  }
+
+  static const _keyLocalUid = 'local_uid';
+  static const _keyUid = 'uid';
+}
+
 class PreferencesProvider {
   var cellularNetwork = CellularNetworkAllowed();
   var gpsAuthNotifier = GPSPrefNotifier();
+  var uidStore = UidStore();
 
   PreferencesProvider() {
     _setup(_key3G, cellularNetwork);
     _setupAuthNotifier();
   }
+
 
   // ---------------------------------------------------------------------------
 

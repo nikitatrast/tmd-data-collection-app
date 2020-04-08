@@ -1,4 +1,5 @@
 import 'package:accelerometertest/pages/info_page.dart';
+import 'package:accelerometertest/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -27,17 +28,14 @@ import 'pages/trip_recorder_page.dart';
 
 import 'widgets/modes_view.dart' show ModeRoute;
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown
-  ]);
+  SystemChrome.setPreferredOrientations(
+      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
 
   var prefs = PreferencesProvider();
-  var uploader = Uploader();
+  var uploader = Uploader(prefs.uidStore);
   var network = NetworkManager(prefs.cellularNetwork);
   var storage = DataStore();
   var battery = BatteryNotifier();
@@ -47,8 +45,11 @@ void main() async {
     Sensor.accelerometer: AccelerationProvider()
   };
   var uploadManager = UploadManager(storage, network.status, uploader);
-  uploadManager.start();
   storage.onNewTrip = uploadManager.scheduleUpload;
+
+  final onStartup = () {
+    uploadManager.start();
+  };
 
   runApp(MultiProvider(
     providers: [
@@ -56,20 +57,24 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: uploadManager.syncStatus),
+      Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
       Provider<TripRecorderBackendImpl>(
-          create: (_) => TripRecorderBackendImpl(
-              sensorDataProviders, gpsAuth, storage)),
+          create: (_) =>
+              TripRecorderBackendImpl(sensorDataProviders, gpsAuth, storage)),
     ],
-    child: MyApp(),
+    child: MyApp(onStartup),
   ));
 }
 
 class MyApp extends StatelessWidget {
-  MyApp() {
+  final VoidCallback onStartup;
+
+  MyApp(this.onStartup) {
     initializeDateFormatting('fr_FR', null);
   }
+
   @override
   Widget build(BuildContext context) {
     print('[App] build');
@@ -81,8 +86,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
         title: 'TMD data collection',
         theme: ThemeData(primarySwatch: Colors.blue),
-        //initialRoute: '/test-location',
-        initialRoute: '/selection',
+        initialRoute: '/register',
         routes: {
           for (var mode in enabledModes)
             mode.route: (context) => Consumer<TripRecorderBackendImpl>(
@@ -108,9 +112,20 @@ class MyApp extends StatelessWidget {
               ),
           '/data-explorer': (context) => Consumer<ExplorerBackend>(
               builder: (context, backend, _) => ExplorerPage(
-                  backend, (item) => Navigator.of(context).pushNamed('/info', arguments: item))),
+                  backend,
+                  (item) => Navigator.of(context)
+                      .pushNamed('/info', arguments: item))),
           '/info': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) => InfoPage(backend, ModalRoute.of(context).settings.arguments)),
+              builder: (context, backend, _) =>
+                  InfoPage(backend, ModalRoute.of(context).settings.arguments)),
+          '/register': (context) =>
+              Consumer<UidStore>(
+                builder: (ctx, store, _) =>
+                  RegisterPage(store, () {
+                    this.onStartup();
+                    Navigator.of(ctx).pushReplacementNamed('/selection');
+                  })
+              ),
         });
   }
 }

@@ -1,17 +1,23 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data' show ByteBuffer, Uint8List;
+import 'dart:convert';
+
 import 'package:dio/adapter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
+import 'package:slugify/slugify.dart';
+import 'package:device_info/device_info.dart';
 
-import '../models.dart' show Trip, ModeValue, Mode;
+import '../models.dart' show Trip, ModeValue;
 import '../backends/upload_manager.dart' show UploadStatus;
+import '../boundaries/preferences_provider.dart' show UidStore;
 
 const HOST = 'https://192.168.1.143:4430';
 const UPLOAD_URL = '$HOST/upload';
 const HELLO_URL = '$HOST/hello';
+const REGISTER_URL = '$HOST/register';
 
 enum UploaderStatus {
   offline, ready, uploading
@@ -62,11 +68,12 @@ class Certificates {
 }
 
 class Uploader {
+  UidStore uidStore;
   var status = ValueNotifier(UploaderStatus.offline);
   Future<Dio> _dio;
 
 
-  Uploader() {
+  Uploader(this.uidStore) {
     var context = Certificates.get().then((certs) {
       var context = SecurityContext(withTrustedRoots: false);
       context.setTrustedCertificatesBytes(certs.serverCA);
@@ -90,17 +97,56 @@ class Uploader {
   Future<void> start() async {
     print('[Uploader] Sending connection request to server');
     var dio = await _dio;
-    await dio.get(HELLO_URL, options: Options(
-      sendTimeout: 300,
-      receiveTimeout: 300,
-    )).then((r) {
-      print('[Uploader] Connection request success, back online.');
-      status.value = UploaderStatus.ready;
-    }).catchError((e) {
-      print('[Uploader] Connection request failed, Uploader offline.');
-      print(e);
-      status.value = UploaderStatus.offline;
-    });
+    var uid = await uidStore.getUid();
+
+    if (uid == null) {
+      await register();
+    } else {
+      await dio.get(HELLO_URL, options: Options(
+        sendTimeout: 300,
+        receiveTimeout: 300,
+      )).then((r) {
+        print('[Uploader] Connection request success, back online.');
+        status.value = UploaderStatus.ready;
+      }).catchError((e) {
+        print('[Uploader] Connection request failed, Uploader offline.');
+        print(e);
+        status.value = UploaderStatus.offline;
+      });
+    }
+  }
+
+  Future<void> register() async {
+    var dio = await _dio;
+    var deviceInfo = await _deviceInfo;
+    var localUid = await uidStore.getLocalUid();
+
+    if (localUid == null) {
+      print('[Uploader] local uid is null, using empty string');
+      localUid = '';
+    }
+
+    await dio.post(REGISTER_URL,
+      data: FormData.fromMap({
+        'uid': localUid,
+        'info': deviceInfo
+      }),
+      options: Options(
+        sendTimeout: 300,
+        receiveTimeout: 300,
+      )).then((r) async {
+        var uid = r.data['uid'];
+        if (uid != null) {
+          print('[Uploader] Register request success, uid is: $uid');
+          uidStore.setUid(uid);
+          status.value = UploaderStatus.ready;
+        } else
+          throw Exception('Register failed.');
+      }).catchError((e) {
+        print('[Uploader] Register request failed, Uploader offline.');
+        print(e);
+        status.value = UploaderStatus.offline;
+      });
   }
 
   Future<bool> upload(Upload data) async {
@@ -144,10 +190,12 @@ class Uploader {
 
   Future<Response> _post(Upload item, UploadData itemData, CancelToken token, Function onCancel, Function onError) async {
     var dio = await _dio;
+    var uid = await uidStore.getUid();
     var formData = FormData.fromMap({
       "mode": item.t.mode.value,
       "start": item.t.start.millisecondsSinceEpoch,
       "end": item.tripEnd.millisecondsSinceEpoch,
+      "uid": uid,
       "data": MultipartFile(itemData.content, itemData.contentLength, filename:itemData.tag),
     });
     return dio.post(
@@ -170,4 +218,45 @@ class Uploader {
       }
     });
   }
+
+  Future<String> get _deviceInfo async {
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      AndroidDeviceInfo info = await deviceInfo.androidInfo;
+      return jsonEncode({
+        'platform':'android',
+        'androidId':info.androidId,
+        'board':info.board,
+        'brand':info.brand,
+        'device':info.device,
+        'host':info.host,
+        'physical': info.isPhysicalDevice,
+        'manufacturer': info.manufacturer,
+        'model': info.model,
+        'tags': info.tags,
+        'version': info.version.release,
+        'sdk': info.version.sdkInt,
+        'time': DateTime.now().millisecondsSinceEpoch,
+      });
+    } else if (Platform.isIOS) {
+      IosDeviceInfo info = await deviceInfo.iosInfo;
+      return jsonEncode({
+        'platform':'ios',
+        'uuid': info.identifierForVendor,
+        'physical': info.isPhysicalDevice,
+        'model': info.model,
+        'name': info.name,
+        'system': info.systemName,
+        'systemVersion': info.systemVersion,
+        'machine': info.utsname.machine,
+        'release': info.utsname.release,
+        'time': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+    return jsonEncode({
+      'platform': 'unknown',
+      'time': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
 }

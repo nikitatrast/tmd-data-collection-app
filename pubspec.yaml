@@ -35,6 +35,7 @@ dependencies:
   battery: ">=0.3.1+9 <2.0.0"
   async:
   quiver:
+  device_info:
 
 dev_dependencies:
   flutter_test:
