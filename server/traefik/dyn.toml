@@ -1,0 +1,23 @@
+# dynamic configuration:
+#    routers
+#    middlewares
+#    services
+#    tls
+
+
+[[tls.certificates]]
+  certFile = "/certs/192.168.1.143.pem"
+  keyFile = "/certs/192.168.1.143.key"
+  stores = ["default"]
+
+[tls.options]
+  [tls.options.default]
+    [tls.options.default.clientAuth]
+      caFiles = ["/certs/client/CA.pem"]
+      clientAuthType = "RequireAndVerifyClientCert"
+
+[tls.stores]
+  [tls.stores.default]
+    [tls.stores.default.defaultCertificate]
+      certFile = "/certs/192.168.1.143.pem"
+      keyFile  = "/certs/192.168.1.143.key"

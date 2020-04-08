@@ -1,0 +1,25 @@
+defaultEntryPoints = ["http", "https"]
+
+[global]
+  sendAnonymousUsage = false
+
+[log]
+  level = "INFO"
+
+[api]
+  dashboard = true
+  insecure = true
+
+[entryPoints]
+    [entryPoints.http]
+    address = ":8000"
+
+    [entryPoints.https]
+    address = ":4430"
+
+[providers]
+  [providers.docker]
+    exposedByDefault = false
+
+  [providers.file]
+    filename = "/dyn.toml"

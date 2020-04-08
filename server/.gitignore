@@ -1,0 +1,6 @@
+venv
+certs
+app/__pycache__
+.env
+app/data
+.vscode
