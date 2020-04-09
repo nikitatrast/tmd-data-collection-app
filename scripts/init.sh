@@ -30,7 +30,6 @@ mkdir -p $CERT_DIR
 
 CA_KEY="$CERT_DIR/CA.key"
 CA_PEM="$CERT_DIR/CA.pem"
-CA_DER="$CERT_DIR/CA.der"
 CA_CSR="$CERT_DIR/CA.csr"
 CA_SRL="$CERT_DIR/CA.srl"
 EXT_FILE="$PREFIX/scripts/x509.ext"
@@ -42,12 +41,6 @@ else
     echo "Generating a self-signed certificate authority (CA)"
     openssl req -new -sha256 -nodes -newkey rsa:4096 -keyout "$CA_KEY" -out "$CA_CSR"
     openssl x509 -req -sha256 -extfile "$EXT_FILE" -extensions ca -in "$CA_CSR" -signkey "$CA_KEY" -days 1095 -out "$CA_PEM"
-fi
-
-if [ -f "$CA_DER" ]; then
-    echo "$CA_DER found"
-else
-    openssl x509 -in "$CA_PEM" -outform der -out "$CA_DER"
 fi
 
 #-------------------
@@ -64,7 +57,6 @@ read -p 'Organization name? ' COMPANY
 
 SERVER_KEY="$CERT_DIR/$DOMAIN.key"
 SERVER_PEM="$CERT_DIR/$DOMAIN.pem"
-SERVER_DER="$CERT_DIR/$DOMAIN.der"
 SERVER_CSR="$CERT_DIR/$DOMAIN.csr"
 
 if [ -f "$SERVER_KEY" ] && [ -f "$SERVER_PEM" ]; then
@@ -75,12 +67,6 @@ else
     echo "Info: the following subject will be used to generate server certificate: $SUBJ"
     openssl req -new -sha256 -nodes -subj "$SUBJ" -newkey rsa:4096 -keyout "$SERVER_KEY" -out "$SERVER_CSR"
     openssl x509 -req -sha256 -CA "$CA_PEM" -CAkey "$CA_KEY" -days 730 -CAcreateserial -CAserial "$CA_SRL" -extfile "$EXT_FILE" -extensions server -in "$SERVER_CSR" -out "$SERVER_PEM"
-fi
-
-if [ -f "$SERVER_DER" ]; then
-    echo "$SERVER_DER found"
-else
-    openssl x509 -in "$SERVER_PEM" -outform der -out "$SERVER_DER"
 fi
 
 #-------------------
@@ -132,19 +118,23 @@ cp "$CA_PEM" "$TRAEFIK_CLIENT_CA"
 
 FLUTTER_ASSET_DIR="$PREFIX/smartphone-app/assets"
 FLUTTER_CERT_DIR="$FLUTTER_ASSET_DIR/certificates"
+FLUTTER_KEYS_DIR="$FLUTTER_CERT_DIR/public-keys"
+
 [ -d "$FLUTTER_ASSET_DIR" ] || mkdir "$FLUTTER_ASSET_DIR"
 [ -d "$FLUTTER_CERT_DIR" ]  || mkdir "$FLUTTER_CERT_DIR"
+[ -d "$FLUTTER_KEYS_DIR" ]  || mkdir "$FLUTTER_KEYS_DIR"
 
 FLUTTER_CLIENT_KEY="$FLUTTER_CERT_DIR/client.key"
-FLUTTER_CLIENT_PEM="$PREFIX/smartphone-app/assets/certificates/client.pem"
-FLUTTER_SERVER_CA_PEM="$PREFIX/smartphone-app/assets/certificates/server-ca.pem"
-FLUTTER_SERVER_CA_DER="$PREFIX/smartphone-app/assets/certificates/server-ca.der"
+FLUTTER_CLIENT_PEM="$FLUTTER_CERT_DIR/client.pem"
+FLUTTER_SERVER_CA_PEM="$FLUTTER_CERT_DIR/server-ca.pem"
+FLUTTER_SERVER_PEM="$FLUTTER_KEYS_DIR/$DOMAIN.pem"
 
-echo "Copying client certificate to flutter application's assets"
+echo "Copying certificates to flutter application's assets"
 cp "$CA_PEM" "$FLUTTER_SERVER_CA_PEM"
-cp "$CA_DER" "$FLUTTER_SERVER_CA_DER"
 cp "$CLIENT_KEY" "$FLUTTER_CLIENT_KEY"
 cp "$CLIENT_PEM" "$FLUTTER_CLIENT_PEM"
+cp "$SERVER_PEM" "$FLUTTER_SERVER_PEM"
+ls "$FLUTTER_KEYS_DIR" > "$FLUTTER_CERT_DIR/public-keys.txt"
 
 # Configure default ports
 

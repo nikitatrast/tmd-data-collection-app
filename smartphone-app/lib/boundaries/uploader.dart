@@ -40,18 +40,26 @@ class Certificates {
   Uint8List serverCA;
   Uint8List clientKey;
   Uint8List clientCA;
+  List<String> allowedPem;
 
   static Future<Certificates> get() async {
-    var serverCA = await ((Platform.isAndroid)
-        ? rootBundle.load('assets/certificates/server-ca.pem')
-        : rootBundle.load('assets/certificates/server-ca.der'));
+    var serverCA = await rootBundle.load('assets/certificates/server-ca.pem');
     var clientKey = await rootBundle.load('assets/certificates/client.key');
     var clientCA = await rootBundle.load('assets/certificates/client.pem');
+
+    var pemText = await rootBundle.loadString('assets/certificates/public-keys.txt');
+    var pemList = pemText.split('\n').where((line) => line.trim().isNotEmpty);
+    var pemsFuture = pemList.map((path) {
+      var assetPath = 'assets/certificates/public-keys/$path';
+      return rootBundle.loadString(assetPath);
+    });
+    var pems = await Future.wait(pemsFuture);
 
     var c = Certificates();
     c.serverCA = _convert(serverCA);
     c.clientKey = _convert(clientKey);
     c.clientCA = _convert(clientCA);
+    c.allowedPem = pems;
     return c;
   }
 
@@ -68,19 +76,29 @@ class Uploader {
 
 
   Uploader(this.uidStore) {
-    var context = Certificates.get().then((certs) {
+    _dio = Certificates.get().then((certs) {
       var context = SecurityContext(withTrustedRoots: false);
-      context.setTrustedCertificatesBytes(certs.serverCA);
       context.usePrivateKeyBytes(certs.clientKey);
       context.useCertificateChainBytes(certs.clientCA);
-      return context;
-    });
 
-    _dio = context.then((context) {
+      // Prefer to use trusted CA
+      // but on iOS self-signed CA not working
+      // so, also use badCertificateCallback with server's public key pinning
+      context.setTrustedCertificatesBytes(certs.serverCA);
+
       var dio = Dio();
       var adapter = dio.httpClientAdapter as DefaultHttpClientAdapter;
       adapter.onHttpClientCreate = (HttpClient client) {
         var client = HttpClient(context: context);
+
+        // Public key pinning if the CA was rejected (because of bug on iOS)
+        client.badCertificateCallback = (X509Certificate cert, host, int port) {
+          final ok = certs.allowedPem.any((pem) => pem == cert.pem);
+          print('[Uploader] request triggered badCertificateCallback'
+                ', certificate accepted: $ok'
+          );
+          return ok;
+        };
         return client;
       };
       dio.httpClientAdapter = adapter;
