@@ -38,3 +38,5 @@ lib/generated_plugin_registrant.dart
 pubspec.lock
 assets/certificates
 assets/server-info.json
+*.jks
+android/key.properties
