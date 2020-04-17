@@ -36,6 +36,8 @@ dependencies:
   async:
   quiver:
   device_info:
+  geolocator: ^5.3.1
+  foreground_service: 1.3.0
 
 dev_dependencies:
   flutter_test:

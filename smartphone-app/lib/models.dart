@@ -38,4 +38,12 @@ enum Sensor { accelerometer, gps }
 
 extension SensorValue on Sensor {
   String get value => this.toString().split('.').last;
+
+  static Sensor fromValue(String value) {
+    for (var m in Sensor.values) {
+      if (m.value == value)
+        return m;
+    }
+    return null;
+  }
 }

@@ -23,6 +23,11 @@ class RecordedData {
 
 typedef NewTripCallback = void Function(Trip t);
 
+class RecordingFile {
+  String path;
+  Completer _completer;
+  Trip _t;
+}
 
 abstract class ReadOnlyStore{
   Future<DateTime> getEnd(Trip t);
@@ -136,6 +141,23 @@ class DataStore implements ReadOnlyStore {
       c.complete();
       _recordings[t].remove(c);
     });
+  }
+
+  Future<RecordingFile> openRecordingFile(Trip t, Sensor s) async {
+    _recordings.putIfAbsent(t, () => <Completer>[]);
+    var c = Completer();
+    _recordings[t].add(c);
+    await _makeTripDirectory(t);
+    var f = RecordingFile();
+    f.path = await _filePath(t, s);
+    f._t = t;
+    f._completer = c;
+    return f;
+  }
+
+  Future<void> closeRecordingFile(RecordingFile f) async {
+    f._completer.complete();
+    _recordings[f._t].remove(f._completer);
   }
 
   Future<RecordedData> readData(Trip t, Sensor s) async {

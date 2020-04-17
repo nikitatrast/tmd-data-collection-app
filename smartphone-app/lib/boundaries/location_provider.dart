@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:accelerometertest/backends/gps_auth.dart';
 import 'package:accelerometertest/boundaries/sensor_data_provider.dart';
 import 'package:accelerometertest/models.dart' show Serializable;
-import 'package:location/location.dart' as plugin;
+import 'package:geolocator/geolocator.dart' as plugin;
+import 'package:location/location.dart' as plugin2;
 
 class LocationData extends Serializable {
   int millisecondsSinceEpoch;
@@ -33,8 +33,8 @@ class LocationData extends Serializable {
         '$_speed,$_speedAccuracy,$_heading,\n';
   }
 
-  LocationData.create(plugin.LocationData e) {
-    millisecondsSinceEpoch = e.time.toInt();
+  LocationData.create(plugin.Position e) {
+    millisecondsSinceEpoch = e.timestamp.millisecondsSinceEpoch;
     latitude = e.latitude;
     longitude = e.longitude;
     altitude = e.altitude;
@@ -46,12 +46,10 @@ class LocationData extends Serializable {
 }
 
 class LocationProvider implements SensorDataProvider<LocationData> {
-  GPSAuth auth;
   StreamSubscription subscription;
   StreamController<LocationData> controller;
-  bool firstStreaming = true;
 
-  LocationProvider(this.auth) {
+  LocationProvider() {
     controller = StreamController<LocationData>.broadcast(
       onListen: startStreaming,
       onCancel: stopStreaming,
@@ -64,22 +62,15 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void startStreaming() async {
-    auth.addListener(authChanged);
-
-    if (auth.value == true && subscription == null) {
-      if (await requestPermission() && subscription == null) {
-        subscription = plugin.Location().onLocationChanged().listen((event) {
-          controller.add(LocationData.create(event));
-        });
-        print('[LocationProvider] Streaming started');
-        return;
-      }
+    if (subscription == null) {
+      subscription = _subscribeToPluginStream(controller);
+      print('[LocationProvider] Streaming started');
+    } else {
+      print('[LocationProvider] Streaming already started');
     }
-    print('[LocationProvider] Streaming enabled but not started');
   }
 
   void stopStreaming() {
-    auth.removeListener(authChanged);
     var s = subscription;
     subscription = null;
     s?.cancel();
@@ -87,10 +78,8 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void resumeStreaming() async {
-    if (await requestPermission() && subscription == null) {
-      subscription = plugin.Location().onLocationChanged().listen((event) {
-        controller.add(LocationData.create(event));
-      });
+    if (subscription == null) {
+      subscription = _subscribeToPluginStream(controller);
       print('[LocationProvider] Streaming resumed');
     }
   }
@@ -102,39 +91,50 @@ class LocationProvider implements SensorDataProvider<LocationData> {
     print('[LocationProvider] Streaming paused');
   }
 
-  void authChanged() async {
-    print('authChanged ${auth.value}');
-    if (controller.hasListener) {
-      if (auth.value == true) {
-        resumeStreaming();
-      } else {
-        pauseStreaming();
-      }
-    }
+
+  static StreamSubscription _subscribeToPluginStream(controller) {
+    var bestForNavigation = plugin.LocationAccuracy.bestForNavigation;
+    var stream = plugin.Geolocator().getPositionStream(
+        plugin.LocationOptions(accuracy: bestForNavigation),
+        plugin.GeolocationPermission.locationAlways);
+    var _subscription = stream.listen((event) {
+      controller.add(LocationData.create(event));
+    });
+    return _subscription;
   }
 
   // ---------------------------------------------------------------------------
 
   Future<bool> requestPermission() async {
-    var _source = plugin.Location();
-    var serviceEnabled = await _source.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _source.requestService();
-      if (!serviceEnabled) {
+    var location = new plugin2.Location();
+
+    var _serviceEnabled = await location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) {
         return false;
       }
     }
-    var permissionGranted = await _source.hasPermission();
-    if (permissionGranted == plugin.PermissionStatus.DENIED) {
-      permissionGranted = await _source.requestPermission();
-      if (permissionGranted != plugin.PermissionStatus.GRANTED) {
+
+    var _permissionGranted = await location.hasPermission();
+    if (_permissionGranted == plugin2.PermissionStatus.DENIED) {
+      _permissionGranted = await location.requestPermission();
+      if (_permissionGranted != plugin2.PermissionStatus.GRANTED) {
         return false;
       }
     }
-    _source.changeSettings(
-      accuracy: plugin.LocationAccuracy.HIGH,
-      interval: 1000 /* ms */,
-    );
+
+    var geolocator = plugin.Geolocator();
+    var status = await geolocator.checkGeolocationPermissionStatus();
+    switch (status) {
+      case plugin.GeolocationStatus.denied:
+      case plugin.GeolocationStatus.disabled:
+        return false;
+      case plugin.GeolocationStatus.unknown:
+      case plugin.GeolocationStatus.granted:
+      case plugin.GeolocationStatus.restricted:
+        return true;
+    }
     return true;
   }
 }

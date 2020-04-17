@@ -4,20 +4,17 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'backends/network_manager.dart';
-import 'boundaries/sensor_data_provider.dart';
-import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
-import 'boundaries/location_provider.dart';
 import 'boundaries/preferences_provider.dart';
 import 'boundaries/uploader.dart';
 
-import 'backends/trip_recorder_backend.dart';
+import 'backends/trip_recorder_backend_android.dart';
 import 'backends/gps_auth.dart';
 import 'backends/explorer_backend.dart';
 
 import 'backends/upload_manager.dart';
-import 'models.dart' show Sensor, enabledModes;
+import 'models.dart' show enabledModes;
 
 import 'pages/trip_selector_page.dart';
 import 'pages/settings_page.dart';
@@ -40,10 +37,6 @@ void main() async {
   var storage = DataStore();
   var battery = BatteryNotifier();
   var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
-  var sensorDataProviders = <Sensor, SensorDataProvider>{
-    Sensor.gps: LocationProvider(gpsAuth),
-    Sensor.accelerometer: AccelerationProvider()
-  };
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
 
@@ -58,9 +51,9 @@ void main() async {
       Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
-      Provider<TripRecorderBackendImpl>(
+      Provider<TripRecorderBackend>(
           create: (_) =>
-              TripRecorderBackendImpl(sensorDataProviders, gpsAuth, storage)),
+              TripRecorderBackendAndroidImpl(gpsAuth, storage)),
     ],
     child: MyApp(),
   ));
@@ -85,7 +78,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/initial',
         routes: {
           for (var mode in enabledModes)
-            mode.route: (context) => Consumer<TripRecorderBackendImpl>(
+            mode.route: (context) => Consumer<TripRecorderBackend>(
                   builder: (context, recorder, _) => TripRecorderPage(
                     mode: mode,
                     recorderBuilder: () => recorder,

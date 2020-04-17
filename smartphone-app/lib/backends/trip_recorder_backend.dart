@@ -16,7 +16,9 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   Trip _trip;
   Completer<DateTime> _tripEnd;
 
-  TripRecorderBackendImpl(this._providers, this.gpsAuth, this._storage);
+  TripRecorderBackendImpl(Map providers, this.gpsAuth, this._storage) {
+    this._providers = providers.map((key, value) => MapEntry(key, value()));
+  }
 
   @override
   Future<bool> start(Mode tripMode) async {
