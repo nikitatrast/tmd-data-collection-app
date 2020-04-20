@@ -1,0 +1,3 @@
+[submodule "smartphone-app/plugins/foreground_service"]
+	path = smartphone-app/plugins/foreground_service
+	url = https://github.com/julien-h/foreground_service.git

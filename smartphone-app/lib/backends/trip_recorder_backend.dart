@@ -1,13 +1,14 @@
 import 'dart:async';
+import 'package:accelerometertest/boundaries/acceleration_provider.dart';
+import 'package:accelerometertest/boundaries/location_provider_background.dart';
 import 'package:async/async.dart';
 
 import 'package:accelerometertest/backends/gps_auth.dart';
 
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
-import '../models.dart' show Mode, Sensor, Trip;
+import '../models.dart' show Mode, Sensor, Trip, LocationData;
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
-import '../boundaries/location_provider.dart' show LocationData;
 
 class TripRecorderBackendImpl implements TripRecorderBackend {
   Map<Sensor, SensorDataProvider> _providers;
@@ -16,8 +17,11 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   Trip _trip;
   Completer<DateTime> _tripEnd;
 
-  TripRecorderBackendImpl(Map providers, this.gpsAuth, this._storage) {
-    this._providers = providers.map((key, value) => MapEntry(key, value()));
+  TripRecorderBackendImpl(this.gpsAuth, this._storage, {providers}) {
+    _providers = providers ?? {
+      Sensor.gps: LocationProviderBackground(gpsAuth),
+      Sensor.accelerometer: AccelerationProvider(),
+    };
   }
 
   @override
@@ -32,7 +36,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
       print('[TripRecorder] startRecording for $sensor');
       _storage.recordData(_trip, sensor, recorderStream(provider.stream, sensor.toString()));
     }
-    return Future.value(true);
+    return true;
   }
 
   void stop() {
@@ -77,5 +81,4 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     Stream<T> done = _tripEnd.future.asStream().map((e) => null);
     return StreamGroup.merge<T>([done, input]).takeWhile((e) => e != null);
   }
-
 }

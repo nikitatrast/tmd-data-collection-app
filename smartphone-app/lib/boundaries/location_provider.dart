@@ -1,49 +1,9 @@
 import 'dart:async';
 
 import 'package:accelerometertest/boundaries/sensor_data_provider.dart';
-import 'package:accelerometertest/models.dart' show Serializable;
+import 'package:accelerometertest/models.dart' show LocationData;
 import 'package:geolocator/geolocator.dart' as plugin;
 import 'package:location/location.dart' as plugin2;
-
-class LocationData extends Serializable {
-  int millisecondsSinceEpoch;
-  double latitude; // Latitude, in degrees
-  double longitude; // Longitude, in degrees
-  double altitude; // In meters above the WGS 84 reference ellipsoid
-  double _accuracy; // Estimated horizontal accuracy of this location, radial, in meters
-  double _speed; // In meters/second
-  double _speedAccuracy; // In meters/second, always 0 on iOS
-  double _heading; //Heading is the horizontal direction of travel of this device, in degrees
-
-  LocationData.parse(String str) {
-    final parts = str.split(',');
-    millisecondsSinceEpoch = int.parse(parts[0]);
-    latitude = double.parse(parts[1]);
-    longitude = double.parse(parts[2]);
-    altitude = double.parse(parts[3]);
-    _accuracy = double.parse(parts[4]);
-    _speed = double.parse(parts[5]);
-    _speedAccuracy = double.parse(parts[6]);
-    _heading = double.parse(parts[7]);
-  }
-
-  String serialize() {
-    return '$millisecondsSinceEpoch,'
-        '$latitude,$longitude,$altitude,$_accuracy,'
-        '$_speed,$_speedAccuracy,$_heading,\n';
-  }
-
-  LocationData.create(plugin.Position e) {
-    millisecondsSinceEpoch = e.timestamp.millisecondsSinceEpoch;
-    latitude = e.latitude;
-    longitude = e.longitude;
-    altitude = e.altitude;
-    _accuracy = e.accuracy;
-    _speed = e.speed;
-    _speedAccuracy = e.speedAccuracy;
-    _heading = e.heading;
-  }
-}
 
 class LocationProvider implements SensorDataProvider<LocationData> {
   StreamSubscription subscription;
@@ -98,7 +58,16 @@ class LocationProvider implements SensorDataProvider<LocationData> {
         plugin.LocationOptions(accuracy: bestForNavigation),
         plugin.GeolocationPermission.locationAlways);
     var _subscription = stream.listen((event) {
-      controller.add(LocationData.create(event));
+      controller.add(LocationData(
+        millisecondsSinceEpoch: event.timestamp.millisecondsSinceEpoch,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        altitude: event.altitude,
+        accuracy: event.accuracy,
+        speed: event.speed,
+        speedAccuracy: event.speedAccuracy,
+        heading: event.heading,
+      ));
     });
     return _subscription;
   }

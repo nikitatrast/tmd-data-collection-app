@@ -1,19 +1,21 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'backends/network_manager.dart';
+import 'backends/trip_recorder_backend.dart';
+import 'backends/gps_auth.dart';
+import 'backends/explorer_backend.dart';
+import 'backends/trip_recorder_backend_android.dart';
+import 'backends/upload_manager.dart';
+
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
 import 'boundaries/preferences_provider.dart';
 import 'boundaries/uploader.dart';
 
-import 'backends/trip_recorder_backend_android.dart';
-import 'backends/gps_auth.dart';
-import 'backends/explorer_backend.dart';
-
-import 'backends/upload_manager.dart';
 import 'models.dart' show enabledModes;
 
 import 'pages/trip_selector_page.dart';
@@ -52,8 +54,14 @@ void main() async {
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
       Provider<TripRecorderBackend>(
-          create: (_) =>
-              TripRecorderBackendAndroidImpl(gpsAuth, storage)),
+          // on iOS, we need to have the GPS running to be able to collect
+          // data in background. But on android, we can use a foreground service
+          // to collect data in background even when GPS is off.
+          // Hence the custom implementation for android.
+          create: (_) => (Platform.isIOS)
+              ? TripRecorderBackendImpl(gpsAuth, storage)
+              : TripRecorderBackendAndroidImpl(gpsAuth, storage)
+      ),
     ],
     child: MyApp(),
   ));

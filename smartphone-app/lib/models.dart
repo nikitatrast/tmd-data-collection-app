@@ -47,3 +47,50 @@ extension SensorValue on Sensor {
     return null;
   }
 }
+
+class LocationData extends Serializable {
+  final int millisecondsSinceEpoch;
+  final double latitude; // Latitude, in degrees
+  final double longitude; // Longitude, in degrees
+  final double altitude; // In meters above the WGS 84 reference ellipsoid
+  final double _accuracy; // Estimated horizontal accuracy of this location, radial, in meters
+  final double _speed; // In meters/second
+  final double _speedAccuracy; // In meters/second, always 0 on iOS
+  final double _heading; //Heading is the horizontal direction of travel of this device, in degrees
+
+  LocationData({
+    this.millisecondsSinceEpoch,
+    this.latitude,
+    this.longitude,
+    this.altitude,
+    accuracy,
+    speed,
+    speedAccuracy,
+    heading
+  })
+      : _accuracy = accuracy
+  , _speed = speed
+  , _speedAccuracy = speedAccuracy
+  , _heading = heading
+  ;
+
+  static LocationData parse(String str) {
+    final parts = str.split(',');
+    return LocationData(
+      millisecondsSinceEpoch: int.parse(parts[0]),
+      latitude: double.parse(parts[1]),
+      longitude: double.parse(parts[2]),
+      altitude: double.parse(parts[3]),
+      accuracy: double.parse(parts[4]),
+      speed: double.parse(parts[5]),
+      speedAccuracy: double.parse(parts[6]),
+      heading: double.parse(parts[7]),
+    );
+  }
+
+  String serialize() {
+    return '$millisecondsSinceEpoch,'
+        '$latitude,$longitude,$altitude,$_accuracy,'
+        '$_speed,$_speedAccuracy,$_heading,\n';
+  }
+}

@@ -40,3 +40,4 @@ assets/certificates
 assets/server-info.json
 *.jks
 android/key.properties
+ios/Podfile.lock

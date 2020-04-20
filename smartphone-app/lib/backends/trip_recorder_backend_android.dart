@@ -10,9 +10,9 @@ import 'package:flutter/cupertino.dart';
 
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
-import '../models.dart' show Mode, Sensor, SensorValue, Trip;
+import '../models.dart' show Mode, Sensor, SensorValue, Trip, LocationData;
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
-import '../boundaries/location_provider.dart' show LocationData, LocationProvider;
+import '../boundaries/location_provider.dart' show LocationProvider;
 
 import 'package:foreground_service/foreground_service.dart';
 
