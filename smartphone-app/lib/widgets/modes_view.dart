@@ -4,6 +4,8 @@ import '../models.dart' show Mode, ModeValue;
 extension ModeText on Mode {
   String get text {
     switch (this) {
+      case Mode.test:
+        return "Test mode";
       case Mode.walk:
         return "Marche à pied";
       case Mode.run:
@@ -44,6 +46,8 @@ extension ModeRoute on Mode {
 extension ModeIcon on Mode {
   IconData get iconData {
     switch (this) {
+      case Mode.test:
+        return Icons.departure_board;
       case Mode.walk:
         return Icons.directions_walk;
       case Mode.run:

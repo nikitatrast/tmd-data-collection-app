@@ -118,7 +118,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
                       RaisedButton(
                         child: Text('Enregistrer ce trajet'),
                         color: Colors.blue,
-                        onPressed: () => saveAndExit(context),
+                        onPressed: () => saveDialog(context),
                       ),
                       OutlineButton(
                         child: Text('Effacer ce trajet'),
@@ -145,6 +145,33 @@ class TripRecorderPageState extends State<TripRecorderPage> {
     AlertDialog alert = AlertDialog(
       title: Text("Confirmation"),
       content: Text("Voulez-vous vraiment effacer les données de ce trajet ?"),
+      actions: [
+        cancelButton,
+        continueButton,
+      ],
+    );
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return alert;
+      },
+    );
+  }
+
+  void saveDialog(BuildContext context) {
+    Widget cancelButton = FlatButton(
+      child: Text("Non"),
+      onPressed: () => Navigator.of(context).pop(),
+    );
+    Widget continueButton = FlatButton(
+        child: Text("Oui, enregistrer."),
+        onPressed: () {
+          Navigator.of(context).pop(); // pop dialog
+          saveAndExit(context);
+        });
+    AlertDialog alert = AlertDialog(
+      title: Text("Confirmation"),
+      content: Text("Voulez-vous vraiment enregistrer ce trajet ? Les données seront transmises au server. Assurez-vous que le mode de transport est correctement renseigné."),
       actions: [
         cancelButton,
         continueButton,

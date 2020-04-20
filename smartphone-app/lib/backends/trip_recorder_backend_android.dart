@@ -74,11 +74,13 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
         break;
 
       case IsolateMessageType.allRecordingsFinished:
-        for (var file in _recordingFiles.values) {
-          _storage.closeRecordingFile(file);
+        if (!_tripEnd.isCompleted) {
+          for (var file in _recordingFiles.values) {
+            _storage.closeRecordingFile(file);
+          }
+          _recordingFiles.clear();
+          _tripEnd.complete(DateTime.now());
         }
-        _recordingFiles.clear();
-        _tripEnd.complete(DateTime.now());
         break;
     }
   }
@@ -176,6 +178,7 @@ class Isolate {
 
     var isRecording = Map<Sensor, Completer>();
     var runningOperations = <Future>[];
+    bool terminateMessageReceived = false;
 
     await ForegroundService.setupIsolateCommunication((data) {
       var message = Messages.parseMainMessage(data);
@@ -224,17 +227,18 @@ class Isolate {
           break;
 
         case MainMessageType.terminate:
-          if (isTerminated.isCompleted)
-            break;
+          if (!terminateMessageReceived && !isTerminated.isCompleted) {
+            terminateMessageReceived = true;
 
-          for (var c in isRecording.values) {
-            if (!c.isCompleted)
-              c.complete();
+            for (var c in isRecording.values) {
+              if (!c.isCompleted)
+                c.complete();
+            }
+            Future.wait(runningOperations).then((_) {
+              Messages.sendToMain(IsolateMessageType.allRecordingsFinished);
+              isTerminated.complete();
+            });
           }
-          Future.wait(runningOperations).then((_) {
-            Messages.sendToMain(IsolateMessageType.allRecordingsFinished);
-            isTerminated.complete();
-          });
           break;
       }
     });

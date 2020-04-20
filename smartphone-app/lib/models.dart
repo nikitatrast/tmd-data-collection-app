@@ -1,4 +1,4 @@
-enum Mode { walk, run, bike, motorcycle, car, bus, metro, train }
+enum Mode { test, walk, run, bike, motorcycle, car, bus, metro, train }
 const List<Mode> enabledModes = Mode.values;
 
 extension ModeValue on Mode {
