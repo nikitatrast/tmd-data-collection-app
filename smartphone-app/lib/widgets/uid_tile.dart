@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:accelerometertest/boundaries/preferences_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +10,15 @@ class UidTile extends StatefulWidget {
 }
 
 class _UidTileState extends State<UidTile> {
+  int taps = 0;
+  Timer t;
+
+  @override
+  void dispose() {
+    super.dispose();
+    t?.cancel();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<UidStore>(
@@ -29,7 +40,20 @@ class _UidTileState extends State<UidTile> {
                         title: Text("${name ?? 'Anonyme'}"),
                         subtitle: Text("uid: ${uid ?? ''}"),
                         leading: Icon(Icons.perm_device_information, size: 40),
-                        onTap: () => confirmationDialog(context, store)
+                        onTap: () {
+                          taps = taps + 1;
+                          print('[UidTile] taps $taps');
+                          if (taps == 3) {
+                            taps = 0;
+                            confirmationDialog(context, store);
+                          } else if (t == null) {
+                            t = Timer(Duration(seconds: 5), () {
+                              print('[UidTile] resetting taps <- 0');
+                              taps = 0;
+                              t = null;
+                            });
+                          }
+                        }
                     );
                   }
                 }
