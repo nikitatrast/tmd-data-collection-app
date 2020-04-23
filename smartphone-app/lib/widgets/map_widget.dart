@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:accelerometertest/boundaries/data_store.dart'
+    show GeoFenceStore;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong/latlong.dart';
-import '../models.dart' show LocationData;
+import 'package:provider/provider.dart';
+import '../models.dart' show GeoFence, LocationData;
 
 class MapWidget extends StatefulWidget {
   final Stream<LocationData> stream;
@@ -36,9 +39,8 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     bounds = LatLngBounds();
     markers = [];
     this.inForeground = true;
-    subscription = widget.stream.listen((v) =>
-        newLocation(v.latitude, v.longitude, v.altitude)
-    );
+    subscription = widget.stream
+        .listen((v) => newLocation(v.latitude, v.longitude, v.altitude));
   }
 
   void dispose() {
@@ -64,22 +66,40 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     print('[MapWidget] building UI');
     return Stack(children: [
-      FlutterMap(
-        mapController: mapController,
-        options: new MapOptions(
-          center: new LatLng(46.526977, 6.629825),
-          onPositionChanged: _onPositionChanged,
-          zoom: 16.0,
-        ),
-        layers: [
-          TileLayerOptions(
-            urlTemplate:
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-            subdomains: ['a', 'b', 'c'],
-            tileProvider: CachedNetworkTileProvider(),
-          ),
-          MarkerLayerOptions(markers: markers)
-        ],
+      Consumer<GeoFenceStore>(
+          builder: (context, store, _) =>
+            FutureBuilder(
+              future: store.geoFences(),
+              builder: (context, snap) {
+                return FlutterMap(
+                  mapController: mapController,
+                  options: new MapOptions(
+                    center: new LatLng(46.526977, 6.629825),
+                    onPositionChanged: _onPositionChanged,
+                    zoom: 16.0,
+                  ),
+                  layers: [
+                    TileLayerOptions(
+                      urlTemplate:
+                          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+                      subdomains: ['a', 'b', 'c'],
+                      tileProvider: CachedNetworkTileProvider(),
+                    ),
+                    MarkerLayerOptions(markers: markers)
+                  ] + ((!snap.hasData || snap.data == null) ? [] : [
+                    CircleLayerOptions(
+                      circles: (snap.data as List<GeoFence>).map((fence) =>
+                        CircleMarker(
+                          point: LatLng(fence.latitude, fence.longitude),
+                          radius: fence.radiusInMeters,
+                          useRadiusInMeter: true,
+                          color: Color.fromRGBO(0, 0, 0, 0.5),
+                        )).toList()
+                    )
+                  ]),
+                );
+              },
+            )
       ),
       Positioned(
         bottom: 5,
@@ -137,8 +157,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         padding: EdgeInsets.only(left: 10, right: 25),
       ),
     );
-    if (viewMode != ViewModes.trip)
-      setState(() => viewMode = ViewModes.trip);
+    if (viewMode != ViewModes.trip) setState(() => viewMode = ViewModes.trip);
   }
 
   void _onPositionChanged(MapPosition position, bool hasGesture) {

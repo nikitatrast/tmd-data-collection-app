@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart' as plugin;
 
-import '../models.dart' show Sensor, Serializable, Trip, ModeValue;
+import '../models.dart' show GeoFence, ModeValue, Sensor, Serializable, Trip;
 import '../utils.dart' show IterSum;
 
 class TripInfo {
@@ -22,6 +22,7 @@ class RecordedData {
 }
 
 typedef NewTripCallback = void Function(Trip t);
+typedef GeoFencesChangedCallback = void Function();
 
 class RecordingFile {
   String path;
@@ -38,9 +39,91 @@ abstract class ReadOnlyStore{
   Future<List<Trip>> trips();
 }
 
-class DataStore implements ReadOnlyStore {
+abstract class GeoFenceStore {
+  Future<List<GeoFence>> geoFences();
+  Future<bool> saveGeoFences(Iterable<GeoFence> geoFences);
+  bool get geoFencesUploaded;
+  Future<bool> setGeoFencesUploaded(bool status);
+}
+
+class DataStore implements ReadOnlyStore, GeoFenceStore {
   final _recordings = Map<Trip, List<Completer>>();
   NewTripCallback onNewTrip = (Trip t) {};
+  GeoFencesChangedCallback onGeoFencesChanged = () {};
+  bool _geoFencesUploaded;
+  bool get geoFencesUploaded => _geoFencesUploaded;
+
+  DataStore() {
+    _loadGeoFencesUploaded();
+  }
+
+  @override
+  Future<List<GeoFence>> geoFences() async {
+    var file = await _geoFenceFilePath();
+    try {
+      var lines = File(file).readAsLinesSync();
+      return lines.map((line) => GeoFence.parse(line)).toList();
+    } on Exception catch (e) {
+      print('[DataStore] error while loading GeoFence file (see below).');
+      print(e);
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> saveGeoFences(Iterable<GeoFence> geoFences) async {
+    try {
+      var file = await _geoFenceFilePath();
+      var lines = geoFences.map((f) => f.serialize());
+      File(file).writeAsStringSync(lines.join('\n'));
+
+      var uploadedFile = await _geoFenceUploadedFilePath();
+      try {
+        File(uploadedFile).deleteSync();
+      } on FileSystemException {
+        // ignore
+      }
+      _geoFencesUploaded = false;
+
+      onGeoFencesChanged();
+      return true;
+    } on Exception catch (e) {
+      print('[DataStore] error while saving GeoFences (see below).');
+      print(e);
+      return false;
+    }
+  }
+
+  Future<void> _loadGeoFencesUploaded() async {
+    try {
+      var file = await _geoFenceUploadedFilePath();
+      _geoFencesUploaded = File(file).existsSync();
+    } on Exception catch (e) {
+      print('[DataStore] error while loading GeoFences status (see below).');
+      print(e);
+    }
+  }
+
+  Future<bool> setGeoFencesUploaded(bool status) async {
+    _geoFencesUploaded = status;
+    try {
+      var file = File(await _geoFenceUploadedFilePath());
+      if (status == true) {
+        file.createSync();
+      } else if (status == false) {
+        try {
+          file.deleteSync();
+        } on FileSystemException catch(e) {
+          //ignore
+        }
+      }
+      return true;
+    } on Exception catch (e) {
+      print('[DataStore] error in setGeoFencesUploaded (see below).');
+      print(e);
+      return false;
+    }
+  }
 
   Future<List<Trip>> trips() async {
     var root = await _rootDir();
@@ -209,6 +292,20 @@ Future<Directory> _rootDir() async {
   final dir = await plugin.getApplicationDocumentsDirectory();
   final dataDir = Directory(dir.path + '/data');
   return dataDir.create();
+}
+
+Future<String> _geoFenceFilePath() async {
+  final dir = await plugin.getApplicationDocumentsDirectory();
+  final dataDir = Directory(dir.path + '/geoFence');
+  await dataDir.create();
+  return dataDir.path + "/geofences.csv";
+}
+
+Future<String> _geoFenceUploadedFilePath() async {
+  final dir = await plugin.getApplicationDocumentsDirectory();
+  final dataDir = Directory(dir.path + '/geoFence');
+  await dataDir.create();
+  return dataDir.path + "/uploaded.txt";
 }
 
 Future<String> _dirPath(Trip trip) async {

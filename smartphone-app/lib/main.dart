@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'boundaries/uploader.dart';
 
 import 'models.dart' show enabledModes;
 
+import 'pages/geofence_page.dart';
 import 'pages/trip_selector_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/explorer_page.dart';
@@ -36,11 +38,12 @@ void main() async {
   var prefs = PreferencesProvider();
   var uploader = Uploader(prefs.uidStore);
   var network = NetworkManager(prefs.cellularNetwork);
-  var storage = DataStore();
   var battery = BatteryNotifier();
   var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
+  var storage = DataStore();
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
+  storage.onGeoFencesChanged = uploadManager.scheduleGeoFenceUpload;
 
   uploadManager.start();
 
@@ -62,6 +65,7 @@ void main() async {
               ? TripRecorderBackendImpl(gpsAuth, storage)
               : TripRecorderBackendAndroidImpl(gpsAuth, storage)
       ),
+      Provider<GeoFenceStore>.value(value: storage),
     ],
     child: MyApp(),
   ));
@@ -97,6 +101,7 @@ class MyApp extends StatelessWidget {
           '/selection': _tripSelectorPage,
           '/settings': (context) => SettingsPage(
                 () => Navigator.of(context).pushNamed('/data-explorer'),
+                () => Navigator.of(context).pushNamed('/geofences'),
               ),
           '/data-explorer': (context) => Consumer<ExplorerBackend>(
               builder: (context, backend, _) => ExplorerPage(
@@ -118,6 +123,9 @@ class MyApp extends StatelessWidget {
                       return _tripSelectorPage(context);
                     }
                   })),
+          '/geofences': (c) => Consumer<GeoFenceStore>(
+              builder: (context, store, _) => GeoFencePage(store)
+          ),
         });
   }
 

@@ -38,7 +38,12 @@ class _UidTileState extends State<UidTile> {
                     var uid = data[1];
                     return ListTile(
                         title: Text("${name ?? 'Anonyme'}"),
-                        subtitle: Text("uid: ${uid ?? ''}"),
+                        subtitle: Text(
+                          "${uid ?? ''}",
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
+                          maxLines: 1,
+                        ),
                         leading: Icon(Icons.perm_device_information, size: 40),
                         onTap: () {
                           taps = taps + 1;

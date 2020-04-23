@@ -11,8 +11,9 @@ import '../widgets//uid_tile.dart';
 
 class SettingsPage extends StatelessWidget {
   final Function openDataExplorer;
+  final Function openGeoFences;
 
-  SettingsPage(this.openDataExplorer);
+  SettingsPage(this.openDataExplorer, this.openGeoFences);
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,6 @@ class SettingsPage extends StatelessWidget {
       ListView(
           shrinkWrap: true,
           children: ListTile.divideTiles(context: context, tiles: [
-            UidTile(),
             GpsAuthTile(),
             LoadingSwitchTile<CellularNetworkAllowed>(
               title: const Text('Synchronisation 3G'),
@@ -37,14 +37,20 @@ class SettingsPage extends StatelessWidget {
               secondary: const Icon(Icons.wifi, size: 40),
             ),
             ListTile(
-                title: Text("Afficher les données locales"),
+                title: Text("Données locales"),
                 leading: Icon(Icons.insert_drive_file, size: 40),
                 trailing: Icon(Icons.arrow_forward_ios),
-                onTap: openDataExplorer)
+                onTap: openDataExplorer),
+            ListTile(
+              title: Text("Zones privées"),
+              leading: Icon(Icons.security, size: 40),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: openGeoFences),
           ]).toList()),
       Divider(),
       Expanded(child: Container()),
-      Divider(),
+      Text('- Info - '),
+      UidTile(),
       Consumer<GPSAuth>(
           builder: (context, auth, _) => ListTile(
             title: auth.value

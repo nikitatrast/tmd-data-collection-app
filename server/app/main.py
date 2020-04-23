@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Form, File, UploadFile, HTTPException
+from fastapi import FastAPI, Form, File, UploadFile, HTTPException, Body
+from pydantic import BaseModel
+from typing import List
 
 import datetime
 import logging
@@ -7,6 +9,7 @@ import json
 from pathlib import Path
 
 import security
+
 
 app = FastAPI()
 
@@ -51,8 +54,42 @@ async def upload(
     return {
         "mode": mode,
         "start": format(start),
-        "end": format(end), 
-        #"content_type": data.content_type,
+        "end": format(end),
+    }
+
+
+class GeoFence(BaseModel):
+    latitude: float
+    longitude: float
+    radiusInMeters: float
+
+
+@app.post("/geofences")
+async def geofencesUpload(
+    *,
+    uid: str = Body(...),
+    data: List[GeoFence],
+    ):
+    
+    uids = load_uids()
+    if uid not in uids.keys():
+        logging.warning(f'Unknown UID: `{uid}`')
+        raise HTTPException(status_code=401, detail="Unknown UID")
+
+    data = [{
+        'latitude': obj.latitude,
+        'longitude': obj.longitude,
+        'radiusInMeters': obj.radiusInMeters
+    } for obj in data]
+
+    fpath = fencesPath(uid)
+    logging.info(f'Receiving data: {fpath}')
+    Path(fpath).parent.mkdir(exist_ok=True)
+    with Path(fpath).open('w') as f:
+        json.dump(data, f)
+
+    return {
+        "status": "ok",
     }
 
 
@@ -98,6 +135,10 @@ def filename(mode, start, end, tag):
 def filepath(uid, mode, start, end, tag):
     fname = filename(mode, start, end, tag)
     return f"/app/data/{uid}/{fname}"
+
+
+def fencesPath(uid):
+    return f"/app/data/{uid}/geofences.json"
 
 
 def writeToDisk(data: UploadFile, dest: str):

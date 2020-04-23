@@ -18,6 +18,7 @@ typedef UploadedCallback = void Function(Trip);
 
 class UploadManager {
   ReadOnlyStore _store;
+  GeoFenceStore _geoFenceStore;
   SourceNotifierStore _notifiers;
   Map<Trip, _OutNotifier> _outNotifiers;
   PendingList _pendingUploads;
@@ -25,9 +26,11 @@ class UploadManager {
   UploadedCallback uploadedCallback;
   ValueNotifier<NetworkStatus> _networkStatus;
   ValueNotifier<SyncStatus> syncStatus = ValueNotifier<SyncStatus>(SyncStatus.done);
+  Timer _t;
 
   UploadManager(DataStore store, this._networkStatus, this._uploader)
   : _store = store
+  , _geoFenceStore = store
   , uploadedCallback = store.delete
   {
     _notifiers = SourceNotifierStore(this, store);
@@ -134,9 +137,12 @@ class UploadManager {
   }
 
   Future<SyncStatus> _onUpdateHelper(String trigger) async {
-    if (_pendingUploads.isEmpty) {
+    if (_pendingUploads.isEmpty && _geoFenceStore.geoFencesUploaded != false) {
+      // note: _geoFenceStore.geoFencesUploaded can be `null` hence the test
+      //       for `false`.
       return SyncStatus.done;
     }
+
     // if network has gone off, cancel uploading
     if (_networkStatus.value != NetworkStatus.online) {
       print('[UploadManager] Network offline, stopping uploads (trigger: $trigger)');
@@ -146,40 +152,64 @@ class UploadManager {
       }
       return SyncStatus.awaitingNetwork;
     }
+
     switch(_uploader.status.value) {
       case UploaderStatus.uploading:
         return SyncStatus.uploading;
 
       case UploaderStatus.ready:
-        print('[UploadManager] Processing next pending request (trigger: $trigger)');
-        var pendingList = List.from(_pendingUploads);
-        for (var trip in pendingList) {
-          var notifier = await _notifiers[trip];
-          if (notifier.value == UploadStatus.pending) {
-            _sendToUploader(trip);
-            return SyncStatus.uploading;
+        if (_geoFenceStore.geoFencesUploaded == false) {
+          print('[UploadManager] Uploading geoFences (trigger: $trigger, uploader: ${_uploader.status.value})');
+          _geoFenceStore.setGeoFencesUploaded(null);
+          _geoFenceStore.geoFences().then((geoFences) {
+            _uploader.uploadGeoFences(geoFences).then((uploaded) {
+                _geoFenceStore.setGeoFencesUploaded(uploaded);
+            });
+          }).catchError((e) => _geoFenceStore.setGeoFencesUploaded(false));
+          return SyncStatus.uploading;
+        }
+
+        if (_pendingUploads.isNotEmpty) {
+          print(
+              '[UploadManager] Processing next pending request (trigger: $trigger)');
+          var pendingList = List.from(_pendingUploads);
+          for (var trip in pendingList) {
+            var notifier = await _notifiers[trip];
+            if (notifier.value == UploadStatus.pending) {
+              _sendToUploader(trip);
+              return SyncStatus.uploading;
+            }
           }
         }
         return SyncStatus.done;
 
       case UploaderStatus.offline:
-        _uploader.start();
-        print('[UploadManager] Uploader offline,'
-            ' scheduling auto-start in 1mn (trigger: $trigger)');
-        Timer.periodic(Duration(minutes: 1), (t) {
-          var online = _networkStatus.value == NetworkStatus.online;
-          var stopped = _uploader.status.value == UploaderStatus.offline;
-          if (online && _pendingUploads.isNotEmpty && stopped) {
-            print('\n\n\n\n[UploadManager] Auto-restarting Uploader now.');
-            _uploader.start();
-          } else {
-            print('[UploadManager] Auto-restart obsolete. Cancelling Timer.');
-            t.cancel();
-          }
-        });
+        if (_t == null) {
+          print('[UploadManager] Uploader offline,'
+              ' starting now & scheduling auto-start in 1mn (trigger: $trigger)');
+          _uploader.start();
+          _t = Timer.periodic(Duration(minutes: 1), (t) {
+            var online = _networkStatus.value == NetworkStatus.online;
+            var stopped = _uploader.status.value == UploaderStatus.offline;
+            var hasFencesWork = _geoFenceStore.geoFencesUploaded == false;
+            var workToDo = _pendingUploads.isNotEmpty || hasFencesWork;
+            if (online && workToDo && stopped) {
+              print('\n\n\n\n[UploadManager] Auto-restarting Uploader now.');
+              _uploader.start();
+            } else {
+              print('[UploadManager] Auto-restart obsolete. Cancelling Timer.');
+              _t = null;
+              t.cancel();
+            }
+          });
+        }
         return SyncStatus.serverDown;
     }
     throw Exception('Not implemented');
+  }
+
+  void scheduleGeoFenceUpload() async {
+    _onUpdate('geofences.changed');
   }
 }
 

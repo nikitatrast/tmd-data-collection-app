@@ -94,3 +94,26 @@ class LocationData extends Serializable {
         '$_speed,$_speedAccuracy,$_heading,\n';
   }
 }
+
+class GeoFence implements Serializable {
+  double latitude;
+  double longitude;
+  double radiusInMeters;
+  String description;
+
+  GeoFence(this.latitude, this.longitude, this.radiusInMeters, String description)
+  : description = description.trim().replaceAll(';', ',');
+
+  String serialize() {
+    return '$latitude; $longitude; $radiusInMeters; $description';
+  }
+
+  GeoFence.parse(String str) {
+    var parts = str.split(';');
+    assert(parts.length == 4);
+    latitude = double.parse(parts[0]);
+    longitude = double.parse(parts[1]);
+    radiusInMeters = double.parse(parts[2]);
+    description = parts[3].trim();
+  }
+}

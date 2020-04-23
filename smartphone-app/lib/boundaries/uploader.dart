@@ -9,7 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:device_info/device_info.dart';
 
-import '../models.dart' show Trip, ModeValue;
+import '../models.dart' show GeoFence, ModeValue, Trip;
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../boundaries/preferences_provider.dart' show UidStore;
 
@@ -73,7 +73,6 @@ class Uploader {
   UidStore uidStore;
   var status = ValueNotifier(UploaderStatus.offline);
   Future<Dio> _dio;
-
 
   Uploader(this.uidStore) {
     _dio = Certificates.get().then((certs) {
@@ -165,6 +164,32 @@ class Uploader {
         print(e);
         status.value = UploaderStatus.offline;
       });
+  }
+
+  Future<bool> uploadGeoFences(List<GeoFence> geoFences) async {
+    status.value = UploaderStatus.uploading;
+
+    var dio = await _dio;
+    var uid = await uidStore.getUid();
+
+    var data = {
+      "uid": uid,
+      "data": geoFences.map((fence) => {
+          'latitude': fence.latitude,
+          'longitude': fence.longitude,
+          'radiusInMeters': fence.radiusInMeters,
+      }).toList(),
+    };
+
+    try {
+      var r = await dio.post(await _geofencesUrl, data: data,);
+      status.value = UploaderStatus.ready;
+      return true;
+    } on Exception catch (e) {
+        print(e);
+        status.value = UploaderStatus.offline;
+        return false;
+    }
   }
 
   Future<bool> upload(Upload data) async {
@@ -283,6 +308,7 @@ class Uploader {
     return 'https://${info["domain"]}:${info["port"]}';
   }();
 
+  Future<String> get _geofencesUrl async => '${await _host}/geofences';
   Future<String> get _uploadUrl async => '${await _host}/upload';
   Future<String> get _helloUrl async => '${await _host}/hello';
   Future<String> get _registerUrl async => '${await _host}/register';

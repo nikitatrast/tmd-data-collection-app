@@ -20,13 +20,13 @@ class GpsAuthTile extends StatelessWidget {
     } else
       return Consumer<GPSPrefNotifier>(
         builder: (context, auth, _) => ListTile(
-          title: const Text('Autoriser l\'utilisation du GPS'),
-          subtitle: Text(auth.value?.displayName ?? 'loading...'),
+          title: const Text('Utilisation du GPS'),
+          subtitle: Text(auth.value?.displayName ?? 'chargement...'),
           leading: const Icon(Icons.map, size: 40),
           onTap: () => showDialog(
               context: context,
               builder: (BuildContext context) => SimpleDialog(
-                    title: const Text('Activer le GPS'),
+                    title: const Text('Utilisation du GPS'),
                     children: [
                       for (var option in GPSPref.values)
                         Container(
