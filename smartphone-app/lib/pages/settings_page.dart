@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
@@ -51,15 +52,18 @@ class SettingsPage extends StatelessWidget {
       Expanded(child: Container()),
       Text('- Info - '),
       UidTile(),
-      Consumer<GPSAuth>(
+      _gpsStatusTile(),
+      SyncStatusWidget(),
+    ]);
+  }
+
+  Widget _gpsStatusTile() =>
+      (Platform.isIOS) ? Container() : Consumer<GPSAuth>(
           builder: (context, auth, _) => ListTile(
             title: auth.value
                 ? Text('Collecte GPS : autorisée')
                 : Text('Collecte GPS : désactivée'),
             trailing: Icon(auth.value ? Icons.done : Icons.not_interested),
           )
-      ),
-      SyncStatusWidget(),
-    ]);
-  }
+      );
 }
