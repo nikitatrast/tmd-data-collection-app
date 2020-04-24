@@ -36,29 +36,31 @@ class _UidTileState extends State<UidTile> {
                     var data = snapshot.data;
                     var name = data[0];
                     var uid = data[1];
-                    return ListTile(
-                        title: Text("${name ?? 'Anonyme'}"),
-                        subtitle: Text(
-                          "${uid ?? ''}",
-                          overflow: TextOverflow.fade,
-                          softWrap: false,
-                          maxLines: 1,
-                        ),
-                        leading: Icon(Icons.perm_device_information, size: 40),
-                        onTap: () {
-                          taps = taps + 1;
-                          print('[UidTile] taps $taps');
-                          if (taps == 3) {
+                    return GestureDetector(
+                      child: ListTile(
+                          title: Text("${name ?? 'Anonyme'}"),
+                          subtitle: Text(
+                            "${uid ?? ''}",
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                            maxLines: 1,
+                          ),
+                          leading: Icon(Icons.perm_device_information, size: 40),
+                      ),
+                      onTap: () {
+                        taps = taps + 1;
+                        print('[UidTile] taps $taps');
+                        if (taps == 4) {
+                          taps = 0;
+                          confirmationDialog(context, store);
+                        } else if (t == null) {
+                          t = Timer(Duration(seconds: 5), () {
+                            print('[UidTile] resetting taps <- 0');
                             taps = 0;
-                            confirmationDialog(context, store);
-                          } else if (t == null) {
-                            t = Timer(Duration(seconds: 5), () {
-                              print('[UidTile] resetting taps <- 0');
-                              taps = 0;
-                              t = null;
-                            });
-                          }
+                            t = null;
+                          });
                         }
+                      }
                     );
                   }
                 }
