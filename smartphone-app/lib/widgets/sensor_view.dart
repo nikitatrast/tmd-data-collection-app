@@ -9,6 +9,8 @@ extension SensorView on Sensor {
         return Icons.location_on;
       case Sensor.accelerometer:
         return Icons.font_download;
+      case Sensor.gyroscope:
+        return Icons.screen_rotation;
       default:
         return Icons.device_unknown;
     }

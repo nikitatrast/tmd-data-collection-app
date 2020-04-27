@@ -54,7 +54,7 @@ abstract class Serializable {
 }
 
 /// Sensors from which data can be collected.
-enum Sensor { accelerometer, gps }
+enum Sensor { accelerometer, gps, gyroscope }
 
 extension SensorValue on Sensor {
   /// Slug for this [Sensor].

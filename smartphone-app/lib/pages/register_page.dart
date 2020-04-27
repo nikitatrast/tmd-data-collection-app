@@ -164,6 +164,7 @@ Uniquement les données suivantes seront publiées sur internet :
 
 - les données des capteurs suivants: 
    - accéléromètre ;
+   - gyroscope ;
 - les données du GPS qui *ne sont pas* à l'intérieur de vos zones privées.
 
 # Consentement

@@ -7,6 +7,7 @@ import '../boundaries/acceleration_provider.dart';
 import '../boundaries/location_provider_background.dart';
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
+import '../boundaries/gyroscope_provider.dart';
 
 import '../models.dart' show LocationData, Mode, Sensor, Serializable, Trip;
 
@@ -40,6 +41,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     _providers = providers ?? {
       Sensor.gps: LocationProviderBackground(gpsAuth),
       Sensor.accelerometer: AccelerationProvider(),
+      Sensor.gyroscope: GyroscopeProvider(),
     };
   }
 

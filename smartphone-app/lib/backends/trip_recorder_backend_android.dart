@@ -9,6 +9,7 @@ import '../backends/gps_auth.dart';
 import '../boundaries/acceleration_provider.dart';
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
+import '../boundaries/gyroscope_provider.dart';
 import '../models.dart' show Mode, Sensor, SensorValue, Trip, LocationData;
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 import '../boundaries/location_provider.dart' show LocationProvider;
@@ -248,7 +249,8 @@ class Isolate {
 
     Map<Sensor, SensorDataProvider> providers = {
       Sensor.gps: LocationProvider(),
-      Sensor.accelerometer: AccelerationProvider()
+      Sensor.accelerometer: AccelerationProvider(),
+      Sensor.gyroscope: GyroscopeProvider(),
     };
 
     var isRecording = Map<Sensor, Completer>();

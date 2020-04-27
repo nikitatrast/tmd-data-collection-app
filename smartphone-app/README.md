@@ -7,7 +7,8 @@ Participants can use this application to record sensor data while traveling. Dat
 Recorded sensors are:
 
 1. GPS (when enabled by the user) ;
-2. Accelerometer.
+2. Accelerometer ;
+3. Gyroscope.
 
 To avoid any privacy concern, data is only recorded when the user manually starts a new trip. Data collections stops as soon as the user closes the trip.
 
