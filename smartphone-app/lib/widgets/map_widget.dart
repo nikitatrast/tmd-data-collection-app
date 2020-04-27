@@ -48,7 +48,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     super.initState();
     print('[MapWidget] initState()');
     WidgetsBinding.instance.addObserver(this);
-    viewMode = ViewMode.center;
+    viewMode = ViewMode.trip;
     mapController = MapController();
     bounds = LatLngBounds();
     markers = [];
