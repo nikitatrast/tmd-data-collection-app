@@ -29,6 +29,7 @@ import 'pages/register_page.dart';
 
 import 'widgets/modes_view.dart' show ModeRoute;
 
+/// Creates the stores, initializes the backends then runs the UI.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -47,6 +48,8 @@ void main() async {
 
   uploadManager.start();
 
+  // Note: provide every piece of logic to the UI using a Provider<T>.
+
   runApp(MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: gpsAuth),
@@ -57,20 +60,22 @@ void main() async {
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
       Provider<TripRecorderBackend>(
-          // on iOS, we need to have the GPS running to be able to collect
+          // On iOS, we need to have the GPS running to be able to collect
           // data in background. But on android, we can use a foreground service
           // to collect data in background even when GPS is off.
           // Hence the custom implementation for android.
           create: (_) => (Platform.isIOS)
               ? TripRecorderBackendImpl(gpsAuth, storage)
-              : TripRecorderBackendAndroidImpl(gpsAuth, storage)
-      ),
+              : TripRecorderBackendAndroidImpl(gpsAuth, storage)),
       Provider<GeoFenceStore>.value(value: storage),
     ],
     child: MyApp(),
   ));
 }
 
+/// The app's UI.
+///
+/// Uses Consumer<T> to fetch backends and stores.
 class MyApp extends StatelessWidget {
   MyApp() {
     initializeDateFormatting('fr_FR', null);
@@ -89,66 +94,73 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(primarySwatch: Colors.blue),
         initialRoute: '/initial',
         routes: {
-          for (var mode in enabledModes)
-            mode.route: (context) => Consumer<TripRecorderBackend>(
-                  builder: (context, recorder, _) => TripRecorderPage(
-                    mode: mode,
-                    recorderBuilder: () => recorder,
-                    exit: () => Navigator.of(context)
-                        .pushReplacementNamed('/selection'),
-                  ),
-                ),
+          '/initial': _initialPage,
           '/selection': _tripSelectorPage,
-          '/settings': (context) => SettingsPage(
-                () => Navigator.of(context).pushNamed('/data-explorer'),
-                () => Navigator.of(context).pushNamed('/geofences'),
-              ),
-          '/data-explorer': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) => ExplorerPage(
-                  backend,
-                  (item) => Navigator.of(context)
-                      .pushNamed('/info', arguments: item))),
-          '/info': (context) => Consumer<ExplorerBackend>(
-              builder: (context, backend, _) =>
-                  InfoPage(backend, ModalRoute.of(context).settings.arguments)),
-          '/initial': (context) => Consumer<UidStore>(
-              builder: (context, store, _) => FutureBuilder(
-                  future: store.getLocalUid(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return _loadingPage(context);
-                    } else if (snapshot.data == null) {
-                      return _registerPage(context, store);
-                    } else {
-                      return _tripSelectorPage(context);
-                    }
-                  })),
-          '/geofences': (c) => Consumer<GeoFenceStore>(
-              builder: (context, store, _) => GeoFencePage(store)
-          ),
+          for (var mode in enabledModes)
+            mode.route: (context) => _tripRecorderPage(context, mode),
+          '/settings': _settingsPage,
+          '/data-explorer': _dataExplorerPage,
+          '/info': _infoPage,
+          '/geofences': _geoFencesPage,
         });
   }
 
-  Widget _tripSelectorPage(context) => TripSelectorPage(
-        modes: enabledModes,
-        actions: {
-          for (var em in enabledModes)
-            em: () => Navigator.of(context).pushReplacementNamed(em.route)
-        },
-        settingsAction: () => Navigator.of(context).pushNamed('/settings'),
-      );
+  Widget _initialPage(context) => Consumer<UidStore>(
+      builder: (context, store, _) => FutureBuilder(
+          future: store.getLocalUid(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return _loadingPage(context);
+            } else if (snapshot.data == null) {
+              return _registerPage(context, store);
+            } else {
+              return _tripSelectorPage(context);
+            }
+          }));
 
   Widget _registerPage(context, store) => RegisterPage(store, () {
-    Navigator.of(context)
-        .pushReplacementNamed('/selection');
-  });
-  
+        Navigator.of(context).pushReplacementNamed('/selection');
+      });
+
   Widget _loadingPage(context) => Scaffold(
       appBar: AppBar(),
       body: Center(
         child: Container(
-            width: 100,
-            height: 100,
-            child: CircularProgressIndicator()),
-      )); 
+            width: 100, height: 100, child: CircularProgressIndicator()),
+      ));
+
+  Widget _tripSelectorPage(context) => TripSelectorPage(
+        modes: enabledModes,
+        modeSelected: (m) {
+          Navigator.of(context).pushReplacementNamed(m.route);
+        },
+        settingsAction: () {
+          Navigator.of(context).pushNamed('/settings');
+        },
+      );
+
+  Widget _tripRecorderPage(context, mode) => Consumer<TripRecorderBackend>(
+        builder: (context, backend, _) => TripRecorderPage(
+          mode: mode,
+          backend: backend,
+          onExit: () =>
+              Navigator.of(context).pushReplacementNamed('/selection'),
+        ),
+      );
+
+  Widget _settingsPage(context) => SettingsPage(
+        () => Navigator.of(context).pushNamed('/data-explorer'),
+        () => Navigator.of(context).pushNamed('/geofences'),
+      );
+
+  Widget _dataExplorerPage(context) => Consumer<ExplorerBackend>(
+      builder: (context, backend, _) => ExplorerPage(backend,
+          (item) => Navigator.of(context).pushNamed('/info', arguments: item)));
+
+  Widget _infoPage(context) => Consumer<ExplorerBackend>(
+      builder: (context, backend, _) =>
+          InfoPage(backend, ModalRoute.of(context).settings.arguments));
+
+  Widget _geoFencesPage(c) => Consumer<GeoFenceStore>(
+      builder: (context, store, _) => GeoFencePage(store));
 }

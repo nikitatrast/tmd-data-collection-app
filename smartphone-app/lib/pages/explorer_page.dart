@@ -1,11 +1,11 @@
-import 'package:accelerometertest/widgets/explorer_item_tile.dart';
 import 'package:flutter/material.dart';
 
+import '../backends/upload_manager.dart' show UploadStatus;
 import '../models.dart' show Trip, Sensor;
+import '../widgets/explorer_item_tile.dart';
 import '../widgets/modes_view.dart' show ModeIcon;
 
-import '../backends/upload_manager.dart' show UploadStatus;
-
+/// Controller to provide data to [ExplorerPage].
 abstract class ExplorerBackend {
   Future<List<ExplorerItem>> items();
   Future<bool> delete(ExplorerItem item);
@@ -14,6 +14,7 @@ abstract class ExplorerBackend {
   void cancelUpload(ExplorerItem item);
 }
 
+/// An Item that can be displayed in [ExplorerPage].
 class ExplorerItem extends Trip {
   DateTime end;
   int sizeOnDisk;
@@ -32,9 +33,15 @@ class ExplorerItem extends Trip {
   }
 }
 
+/// Page to display a list of [ExplorerItem] provided by an [ExplorerBackend].
+///
+/// Initially designed to display the list of recorded trips available on local
+/// storage.
 class ExplorerPage extends StatefulWidget {
   final ExplorerBackend backend;
-  final Function openInfoPage;
+
+  /// Callback to open the information page about an [ExplorerItem].
+  final void Function(ExplorerItem) openInfoPage;
 
   ExplorerPage(this.backend, this.openInfoPage);
 
@@ -43,7 +50,10 @@ class ExplorerPage extends StatefulWidget {
 }
 
 class ExplorerPageState extends State<ExplorerPage> {
+  /// Items to be displayed.
   List<ExplorerItem> items;
+
+  /// Items of [items] that are currently displayed with a checked checkbox.
   Set<ExplorerItem> selected;
 
   @override
@@ -103,6 +113,7 @@ class ExplorerPageState extends State<ExplorerPage> {
     }
   }
 
+  /// Adds or remove [item] to [selected] based on [isSelected]'s value.
   void _itemSelected(ExplorerItem item, bool isSelected) {
     setState(() {
       if (isSelected) {
@@ -113,6 +124,7 @@ class ExplorerPageState extends State<ExplorerPage> {
     });
   }
 
+  /// Asks [widget.backend] to delete [ExplorerItem]s in [selected].
   Future<bool> _deleteSelected() async {
     var toDelete = List.from(selected); // no iterator.remove() in dart...
     var results = toDelete.map((item) async {
@@ -130,6 +142,7 @@ class ExplorerPageState extends State<ExplorerPage> {
     return allOk;
   }
 
+  /// Schedules [item] to be uploaded to the server.
   void _uploadItem(BuildContext context, ExplorerItem item) {
     var scaffold = Scaffold.of(context);
     scaffold.hideCurrentSnackBar();
@@ -146,6 +159,7 @@ class ExplorerPageState extends State<ExplorerPage> {
     widget.backend.scheduleUpload(item);
   }
 
+  /// Prompts for confirmation before deletion of [selected] items.
   void _deleteDialog(BuildContext context) {
     final onContinue = () {
       Navigator.of(context).pop(); // pop this dialog
@@ -175,6 +189,7 @@ class ExplorerPageState extends State<ExplorerPage> {
     );
   }
 
+  /// Displays a simple progress dialog.
   void _loadingDialog(BuildContext context, String title) {
     showDialog(
         context: context,

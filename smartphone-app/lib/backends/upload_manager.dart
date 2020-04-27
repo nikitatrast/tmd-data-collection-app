@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:accelerometertest/boundaries/uploader.dart';
 import 'package:flutter/cupertino.dart';
 
 import '../backends/network_manager.dart' show NetworkStatus;
 import '../boundaries/data_store.dart';
+import '../boundaries/uploader.dart';
 import '../models.dart' show Sensor, SensorValue, Trip;
 
 enum UploadStatus {
@@ -16,17 +16,53 @@ enum SyncStatus {
 
 typedef UploadedCallback = void Function(Trip);
 
+/// Manager that schedules [Trip]s uploads.
+///
+/// Developer documentation:
+///
+/// All the scheduling happens through a trip's source notifier
+/// (see [SourceNotifierStore]).
+///
+/// 1. When the source notifier's value goes to [UploadStatus.pending], this
+/// triggers a value listener that adds the trip to [_pendingUploads].
+/// 2. When a pending upload is sent to the [Uploader], it's source notifier
+/// value is set to [UploadStatus.uploading]. And so on.
+/// 3. When the source notifier's value is set to [UploadStatus.uploaded], the
+/// trip is removed from the [_pendingUploads] list and the [uploadedCallback]
+/// is called.
+///
+/// [_OutNotifier]s are simple [ValueNotifier]s that mimic the source notifier's
+/// value.
 class UploadManager {
+  /// Store where to fetch the trips.
   ReadOnlyStore _store;
+
+  /// Store where to fetch the geoFences.
   GeoFenceStore _geoFenceStore;
+
+  /// Store where to fetch the [UploadStatus] of each trip.
   SourceNotifierStore _notifiers;
+
+  /// Used to provide the [UploadStatus] of a trip to the outside world.
   Map<Trip, _OutNotifier> _outNotifiers;
+
+  /// List of items to be uploaded.
   PendingList _pendingUploads;
+
+  /// [Uploader] used to upload the trips in [_pendingUploads].
   Uploader _uploader;
+
+  /// Called when a trip is successfully uploaded.
   UploadedCallback uploadedCallback;
+
+  /// Whether we are allowed to use the network.
   ValueNotifier<NetworkStatus> _networkStatus;
+
+  /// Status of the synchronisation, based on whether we have [_pendingUploads].
   ValueNotifier<SyncStatus> syncStatus = ValueNotifier<SyncStatus>(SyncStatus.done);
-  Timer _t;
+
+  /// Periodic [Timer] to restart the [Uploader] when something goes wrong.
+  Timer _autoRestartUploader;
 
   UploadManager(DataStore store, this._networkStatus, this._uploader)
   : _store = store
@@ -45,12 +81,14 @@ class UploadManager {
     });
   }
 
+  /// Loads the [SourceNotifiers] which will also setup the listeners.
   void start() async {
     print('[UploadManager] Start');
     _notifiers.loadFromStore();
     _outNotifiers = {}; // should reset each time _notifiers is reloaded
   }
 
+  /// Schedules [t] to be uploaded.
   void scheduleUpload(Trip t) async {
     var notifier = await _notifiers[t];
     if (notifier.value == UploadStatus.local) {
@@ -58,12 +96,14 @@ class UploadManager {
     }
   }
 
+  /// Cancels upload of [t].
   void cancelUpload(Trip t) async {
     var notifier = await _notifiers[t];
     print('[UploadManager] Cancelling upload for $t');
     notifier.value = UploadStatus.local;
   }
-  
+
+  /// Returns a [ValueNotifier] with the [UploadStatus] of [t].
   _OutNotifier status(Trip t) {
     if (_outNotifiers.containsKey(t)) {
       return _outNotifiers[t];
@@ -79,12 +119,13 @@ class UploadManager {
     return _outNotifiers[t];
   }
 
+  /// Takes appropriate action in response to the new status [status].
   void _onStatusChanged(Trip t, UploadStatus status) {
     //Important:
-    //  keep the argument `status` with the status value that triggered thi call
-    //  there is no time to reload the current status value from _notifiers
-    //  because sometimes the value changes faster than the reload can happen
-    //  and key value might be missed
+    //  keep the argument `status` with the status value that triggered this
+    //  call, there is no time to reload the current status value from
+    //  _notifiers because sometimes the value changes faster than the reload
+    //  can happen and a key intermediate value might be missed.
     //
     // _pendingUploads.add and .remove should be called ASAP, avoid await before
 
@@ -107,6 +148,7 @@ class UploadManager {
 
     if (status == UploadStatus.uploaded) {
       print('[UploadManager] uploadedCallback( $t )');
+      // Just a safety to make sure everything is done before the callback.
       Timer(Duration(seconds:1), () => uploadedCallback(t));
     }
   }
@@ -129,6 +171,15 @@ class UploadManager {
     return await _uploader.upload(up);
   }
 
+  /// Listener called when something changed and an action must be taken.
+  ///
+  /// Triggers can be:
+  /// - [_pendingUploads] changed,
+  /// - [_networkStatus] changed,
+  /// - [_uploader.status] changed,
+  /// - [scheduleGeoFenceUpload()],
+  /// etc.
+  ///
   Future<void> _onUpdate(String trigger) async {
     /// Helper with a non-void return type so that the compiler
     /// will enforce that all code-path are handled and
@@ -136,6 +187,7 @@ class UploadManager {
     syncStatus.value = await _onUpdateHelper(trigger);
   }
 
+  /// See [_onUpdate()].
   Future<SyncStatus> _onUpdateHelper(String trigger) async {
     if (_pendingUploads.isEmpty && _geoFenceStore.geoFencesUploaded != false) {
       // note: _geoFenceStore.geoFencesUploaded can be `null` hence the test
@@ -184,11 +236,11 @@ class UploadManager {
         return SyncStatus.done;
 
       case UploaderStatus.offline:
-        if (_t == null) {
+        if (_autoRestartUploader == null) {
           print('[UploadManager] Uploader offline,'
               ' starting now & scheduling auto-start in 1mn (trigger: $trigger)');
           _uploader.start();
-          _t = Timer.periodic(Duration(minutes: 1), (t) {
+          _autoRestartUploader = Timer.periodic(Duration(minutes: 1), (t) {
             var online = _networkStatus.value == NetworkStatus.online;
             var stopped = _uploader.status.value == UploaderStatus.offline;
             var hasFencesWork = _geoFenceStore.geoFencesUploaded == false;
@@ -198,7 +250,7 @@ class UploadManager {
               _uploader.start();
             } else {
               print('[UploadManager] Auto-restart obsolete. Cancelling Timer.');
-              _t = null;
+              _autoRestartUploader = null;
               t.cancel();
             }
           });
@@ -214,6 +266,7 @@ class UploadManager {
 }
 
 
+/// Implementation of a [List<Trip>] with an [onChanged] callback.
 class PendingList extends Iterable{
   final _data = <Trip>[];
   final Function onChanged;
@@ -238,11 +291,15 @@ class PendingList extends Iterable{
 }
 
 
+/// A type alias for [ValueNotifier<UploadStatus>] with default value.
+///
+/// Having a named type avoids confusion between a [ValueNotifier] that
+/// is a source notifier, and one that is an out notifier.
 class _OutNotifier extends ValueNotifier<UploadStatus> {
   _OutNotifier() : super(UploadStatus.unknown);
 }
 
-
+/// Class responsible to load source notifiers from the [DataStore].
 class SourceNotifierStore {
   Future<Map<Trip, ValueNotifier<UploadStatus>>> _notifiers;
   final UploadManager _uploader;
@@ -254,6 +311,7 @@ class SourceNotifierStore {
      _notifiers = _loaded.future;
   }
 
+  /// Creates the [ValueNotifier] with all the required listeners.
   ValueNotifier<UploadStatus> _createNotifier(Trip t, [UploadStatus value]) {
     assert(!_created.contains(t));
     _created.add(t);
@@ -297,7 +355,7 @@ class SourceNotifierStore {
   get keys => _notifiers.then((n) => n.keys);
 
   void _ensureValid(UploadStatus value) {
-    print('[SourceNotifier] setting new value: $value');
+    print('source notifier setting new value: $value');
     if (value == UploadStatus.unknown) {
       throw Exception('SourceNotifier cannot hold unknown value');
     }

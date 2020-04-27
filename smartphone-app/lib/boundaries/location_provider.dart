@@ -1,12 +1,17 @@
 import 'dart:async';
 
-import 'package:accelerometertest/boundaries/sensor_data_provider.dart';
-import 'package:accelerometertest/models.dart' show LocationData;
 import 'package:geolocator/geolocator.dart' as plugin;
 import 'package:location/location.dart' as plugin2;
 
+import '../boundaries/sensor_data_provider.dart';
+import '../models.dart' show LocationData;
+
+/// Provides data ([LocationData]) from the GPS sensor.
 class LocationProvider implements SensorDataProvider<LocationData> {
-  StreamSubscription subscription;
+  /// Subscription to the stream of location provided by the plugin.
+  StreamSubscription subscriptionToPlugin;
+
+  /// Controller used to output [LocationData].
   StreamController<LocationData> controller;
 
   LocationProvider() {
@@ -22,8 +27,8 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void startStreaming() async {
-    if (subscription == null) {
-      subscription = _subscribeToPluginStream(controller);
+    if (subscriptionToPlugin == null) {
+      subscriptionToPlugin = _subscribeToPluginStream(controller);
       print('[LocationProvider] Streaming started');
     } else {
       print('[LocationProvider] Streaming already started');
@@ -31,22 +36,22 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void stopStreaming() {
-    var s = subscription;
-    subscription = null;
+    var s = subscriptionToPlugin;
+    subscriptionToPlugin = null;
     s?.cancel();
     print('[LocationProvider] Streaming stopped');
   }
 
   void resumeStreaming() async {
-    if (subscription == null) {
-      subscription = _subscribeToPluginStream(controller);
+    if (subscriptionToPlugin == null) {
+      subscriptionToPlugin = _subscribeToPluginStream(controller);
       print('[LocationProvider] Streaming resumed');
     }
   }
 
   void pauseStreaming() {
-    var s = subscription;
-    subscription = null;
+    var s = subscriptionToPlugin;
+    subscriptionToPlugin = null;
     s?.cancel();
     print('[LocationProvider] Streaming paused');
   }
@@ -74,6 +79,7 @@ class LocationProvider implements SensorDataProvider<LocationData> {
 
   // ---------------------------------------------------------------------------
 
+  /// Requests permission to use GPS. Must be called in main Isolate.
   Future<bool> requestPermission() async {
     var location = new plugin2.Location();
 

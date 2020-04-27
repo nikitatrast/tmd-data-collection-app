@@ -1,8 +1,10 @@
-import 'package:accelerometertest/pages/geofence_picker_page.dart';
 import 'package:flutter/material.dart';
+
 import '../boundaries/data_store.dart' show GeoFenceStore;
+import '../pages/geofence_picker_page.dart';
 import '../models.dart' show GeoFence;
 
+/// Displays the list of [GeoFence]s.
 class GeoFencePage extends StatefulWidget {
   final GeoFenceStore store;
 
@@ -13,8 +15,14 @@ class GeoFencePage extends StatefulWidget {
 }
 
 class _GeoFencePageState extends State<GeoFencePage> {
+  /// Set of [GeoFence]s that are displayed with a checked checkbox.
   Set<GeoFence> _selected = Set();
+
+  /// [GeoFence]s to display.
   List<GeoFence> _geoFences;
+
+  /// Used to be able to call [showSnackBar] on
+  /// the displayed [Scaffold] instance.
   var _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -23,6 +31,7 @@ class _GeoFencePageState extends State<GeoFencePage> {
     loadGeoFences();
   }
 
+  /// Loads [GeoFence]s from the [GeoFenceStore].
   Future<void> loadGeoFences() async {
     var f = await widget.store.geoFences();
     setState(() => _geoFences = f);
@@ -48,6 +57,8 @@ class _GeoFencePageState extends State<GeoFencePage> {
     );
   }
 
+  /// Opens a page to create a new [GeoFence]
+  /// then stores the result in the [GeoFenceStore].
   void openGeoFencePicker(BuildContext context) async {
     var fence = await Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GeoFencePickerPage(
@@ -69,6 +80,7 @@ class _GeoFencePageState extends State<GeoFencePage> {
     }
   }
 
+  /// Asks the [GeoFenceStore] to delete the [GeoFence]s in [_selected].
   void deleteSelected() async {
     showSnackBar("Suppression en cours, veuillez patienter.", seconds: 60*60);
     var remaining = _geoFences.where((f) => !_selected.contains(f));
@@ -86,6 +98,9 @@ class _GeoFencePageState extends State<GeoFencePage> {
 
   }
 
+  /// Displays a [SnackBar] notification with [text] as content.
+  ///
+  /// Note: hides previous [SnackBar] if there was still one displayed.
   void showSnackBar(String text, {int seconds = 4}) {
     _scaffoldKey.currentState.hideCurrentSnackBar();
     _scaffoldKey.currentState.showSnackBar(
@@ -145,10 +160,12 @@ class _GeoFencePageState extends State<GeoFencePage> {
   }
 }
 
+/// Explanation of what a [GeoFence] is.
 final String descriptionText =
     "Votre géoposition à l'intérieur d'une zone privée ne sera pas publiée.\n"
     "Utilisez une zone privée pour dissimuler votre domicile ou lieu de travail par exemple.";
 
+/// Widget to display [descriptionText].
 Widget descriptionWidget(context) => Padding(
     padding: EdgeInsets.only(top: 50, left: 30, right: 30),
     child: Text(descriptionText,

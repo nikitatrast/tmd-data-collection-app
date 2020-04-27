@@ -1,4 +1,5 @@
 extension StringExtension on String {
+  /// A copy of this [String] where the first letter is upper cased.
   String capitalize() {
     return "${this[0].toUpperCase()}${this.substring(1)}";
   }

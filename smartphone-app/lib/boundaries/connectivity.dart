@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:connectivity/connectivity.dart' as plugin;
 import 'package:flutter/cupertino.dart';
 
+/// Information about device's network connection status.
 enum ConnectivityStatus { mobile, wifi, none, unknown }
 
+/// Provides [ConnectivityStatus] of this device.
 class ConnectivityNotifier extends ValueNotifier<ConnectivityStatus> {
   StreamSubscription _subscription;
 

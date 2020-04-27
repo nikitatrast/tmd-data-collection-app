@@ -1,9 +1,14 @@
 import 'dart:async';
 
-import 'package:accelerometertest/boundaries/preferences_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../boundaries/preferences_provider.dart';
+
+/// Widget to display this app's name and UID.
+///
+/// There is a hidden feature to erase this app's UID when
+/// the tile is tapped several times.
 class UidTile extends StatefulWidget {
   @override
   _UidTileState createState() => _UidTileState();

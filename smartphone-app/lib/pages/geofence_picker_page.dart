@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../models.dart' show GeoFence;
 
+/// Page to pick a new [GeoFence] on a [FlutterMap] or using an address.
 class GeoFencePickerPage extends StatefulWidget {
   final String title;
   final List<GeoFence> existingGeoFences;
@@ -18,21 +19,30 @@ class GeoFencePickerPage extends StatefulWidget {
 }
 
 class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
+  /// Default radius of the [GeoFence] that will be created.
   static const double _RADIUS = 200;
 
   MapController mapController;
-  TextEditingController textController;
-  LatLng _position;
-  Future<Position> _currentPosition;
+  TextEditingController addressBarController;
+
+  /// Position of the [GeoFence] to be created. Null if none chosen yet.
+  LatLng _geoFenceCenter;
+
+  /// Last known GPS location of the user, used to center the [FlutterMap].
+  Future<Position> _lastKnownUserLocation;
+
+  /// Used to display [SnackBar] notifications using the displayed [Scaffold].
   var _scaffoldKey = GlobalKey<ScaffoldState>();
+
+
   List<CircleMarker> existingFences;
 
   @override
   void initState() {
     super.initState();
     mapController = MapController();
-    textController = TextEditingController();
-    _currentPosition = Geolocator().getLastKnownPosition();
+    addressBarController = TextEditingController();
+    _lastKnownUserLocation = Geolocator().getLastKnownPosition();
     existingFences = widget.existingGeoFences.map((fence) =>
         CircleMarker(
           point: LatLng(fence.latitude, fence.longitude),
@@ -50,7 +60,7 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
         appBar: AppBar(title: Text(widget.title)),
         body: Stack(children: [
           FutureBuilder(
-            future: _currentPosition,
+            future: _lastKnownUserLocation,
             builder: (context, snapshot) {
                 if (!snapshot.hasData)
                   return Center(child: Container(
@@ -77,17 +87,17 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
                       subdomains: ['a', 'b', 'c'],
                       tileProvider: CachedNetworkTileProvider(),
                     ),
-                    MarkerLayerOptions(markers: (_position == null) ? [] : [
+                    MarkerLayerOptions(markers: (_geoFenceCenter == null) ? [] : [
                       Marker(
-                        point: _position,
+                        point: _geoFenceCenter,
                         builder: (context) => Icon(Icons.pin_drop),
                       )
                     ]),
-                    CircleLayerOptions(circles: (_position == null)
+                    CircleLayerOptions(circles: (_geoFenceCenter == null)
                         ? existingFences
                         : existingFences + [
                       CircleMarker(
-                        point: _position,
+                        point: _geoFenceCenter,
                         radius: _RADIUS,
                         useRadiusInMeter: true,
                         color: Color.fromRGBO(0, 0, 0, 0.5),
@@ -105,7 +115,7 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
                 child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     child: TextField(
-                        controller: textController,
+                        controller: addressBarController,
                         autofocus: false,
                         onSubmitted: _search,
                         decoration: InputDecoration(
@@ -140,17 +150,19 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
         ]));
   }
 
+  /// Sets [_geoFenceCenter] to the tapped position on the [FlutterMap].
   void _handleTap(LatLng position) {
-    setState(() => _position = position);
+    setState(() => _geoFenceCenter = position);
   }
 
+  /// Uses geo-coding to place [address] on the [FlutterMap].
   void _search(String address) async {
     try {
       List<Placemark> marks = await Geolocator().placemarkFromAddress(address);
       var mark = marks.first;
       var pos = LatLng(mark.position.latitude, mark.position.longitude);
       setState(() {
-        _position = pos;
+        _geoFenceCenter = pos;
         mapController.move(pos, 16);
       });
     } on PlatformException catch(e) {
@@ -167,8 +179,9 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
     }
   }
 
+  /// Prompts for the new [GeoFence] name then exits.
   Future<void> _saveAndExit(BuildContext context) async {
-    if (_position == null) {
+    if (_geoFenceCenter == null) {
       _scaffoldKey.currentState.showSnackBar(SnackBar(
         content: Text('Cliquez sur la carte pour choisir une position')
       ));
@@ -176,13 +189,13 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
     }
 
     var controller = TextEditingController();
-    if (textController.text != null && textController.text.trim().isNotEmpty)
-      controller.text = textController.text;
+    if (addressBarController.text != null && addressBarController.text.trim().isNotEmpty)
+      controller.text = addressBarController.text;
     else {
       try {
         List<Placemark> pms = await Geolocator().placemarkFromCoordinates(
-            _position.latitude,
-            _position.longitude,
+            _geoFenceCenter.latitude,
+            _geoFenceCenter.longitude,
             localeIdentifier: 'fr-FR');
         if (pms.isNotEmpty) {
           var pm = pms.first;
@@ -233,8 +246,8 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
               onPressed: () {
                 Navigator.pop(context); //pop dialog
                 Navigator.pop(context, GeoFence(
-                  _position.latitude,
-                  _position.longitude,
+                  _geoFenceCenter.latitude,
+                  _geoFenceCenter.longitude,
                   _RADIUS,
                    controller.text,
                 ));

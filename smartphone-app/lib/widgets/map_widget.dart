@@ -1,14 +1,17 @@
 import 'dart:async';
 
-import 'package:accelerometertest/boundaries/data_store.dart'
-    show GeoFenceStore;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong/latlong.dart';
 import 'package:provider/provider.dart';
+
+import '../boundaries/data_store.dart' show GeoFenceStore;
 import '../models.dart' show GeoFence, LocationData;
 
+/// Widget to display recorded GPS locations during a trip.
 class MapWidget extends StatefulWidget {
+
+  /// Input stream of [LocationData] recorded during the trip.
   final Stream<LocationData> stream;
 
   MapWidget(this.stream);
@@ -17,7 +20,17 @@ class MapWidget extends StatefulWidget {
   State<MapWidget> createState() => MapWidgetState();
 }
 
-enum ViewModes { trip, center, free }
+/// Indicates how the [MapWidget] should be centered.
+enum ViewMode {
+  /// Show the whole trip in the [MapWidget].
+  trip,
+
+  /// Center the [MapWidget] on the current user location.
+  center,
+
+  /// Do not programmatically center the [MapWidget].
+  free
+}
 
 class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
   MapController mapController;
@@ -25,16 +38,17 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
   List<Marker> markers;
   LatLng lastLocation;
   bool inForeground;
-  ViewModes viewMode;
+  ViewMode viewMode;
   StreamSubscription subscription;
 
   MapWidgetState();
 
+  @override
   void initState() {
     super.initState();
     print('[MapWidget] initState()');
     WidgetsBinding.instance.addObserver(this);
-    viewMode = ViewModes.center;
+    viewMode = ViewMode.center;
     mapController = MapController();
     bounds = LatLngBounds();
     markers = [];
@@ -43,6 +57,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         .listen((v) => newLocation(v.latitude, v.longitude, v.altitude));
   }
 
+  @override
   void dispose() {
     super.dispose();
     print('[MapWidget] dispose()');
@@ -107,17 +122,17 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
           FloatingActionButton(
               onPressed: () {
-                if (viewMode == ViewModes.center) {
-                  viewMode = ViewModes.free;
+                if (viewMode == ViewMode.center) {
+                  viewMode = ViewMode.free;
                 } else {
                   centerView();
                 }
               },
               backgroundColor:
-                  viewMode == ViewModes.center ? Colors.blue : Colors.white,
-              elevation: viewMode == ViewModes.center ? 0 : 6,
+                  viewMode == ViewMode.center ? Colors.blue : Colors.white,
+              elevation: viewMode == ViewMode.center ? 0 : 6,
               child: Icon(Icons.navigation,
-                  color: viewMode == ViewModes.center
+                  color: viewMode == ViewMode.center
                       ? Colors.white
                       : Colors.blue),
               heroTag: 'centerView',
@@ -125,18 +140,18 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
           SizedBox(height: 5, width: 5),
           FloatingActionButton(
               onPressed: () {
-                if (viewMode == ViewModes.trip) {
-                  viewMode = ViewModes.free;
+                if (viewMode == ViewMode.trip) {
+                  viewMode = ViewMode.free;
                 } else {
                   fullTripView();
                 }
               },
               backgroundColor:
-                  viewMode == ViewModes.trip ? Colors.blue : Colors.white,
-              elevation: viewMode == ViewModes.trip ? 0 : 6,
+                  viewMode == ViewMode.trip ? Colors.blue : Colors.white,
+              elevation: viewMode == ViewMode.trip ? 0 : 6,
               child: Icon(Icons.zoom_out_map,
                   color:
-                      viewMode == ViewModes.trip ? Colors.white : Colors.blue),
+                      viewMode == ViewMode.trip ? Colors.white : Colors.blue),
               heroTag: 'fulltripView',
               mini: true),
         ]),
@@ -144,12 +159,14 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     ]);
   }
 
+  /// Centers the [FlutterMap] on [lastLocation].
   void centerView() {
     mapController.move(lastLocation, 16.0);
-    if (viewMode != ViewModes.center)
-      setState(() => viewMode = ViewModes.center);
+    if (viewMode != ViewMode.center)
+      setState(() => viewMode = ViewMode.center);
   }
 
+  /// Scales the [FlutterMap] to display the whole trip.
   void fullTripView() {
     mapController.fitBounds(
       bounds,
@@ -157,15 +174,17 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
         padding: EdgeInsets.only(left: 10, right: 25),
       ),
     );
-    if (viewMode != ViewModes.trip) setState(() => viewMode = ViewModes.trip);
+    if (viewMode != ViewMode.trip) setState(() => viewMode = ViewMode.trip);
   }
 
+  /// Enables [ViewMode.free] if user moved the map by hand.
   void _onPositionChanged(MapPosition position, bool hasGesture) {
     if (hasGesture) {
-      setState(() => viewMode = ViewModes.free);
+      setState(() => viewMode = ViewMode.free);
     }
   }
 
+  /// Builds the first marker put on the map.
   Marker firstMarker(LatLng point) {
     return Marker(
       width: 3.0,
@@ -181,6 +200,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     );
   }
 
+  /// Builds a marker representing a location during the trip.
   Marker middleMarker(LatLng point) {
     return Marker(
       width: 1.0,
@@ -192,6 +212,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     );
   }
 
+  /// Builds the marker used for the last recorded position.
   Marker lastMarker(LatLng point) {
     return Marker(
       width: 3.0,
@@ -207,14 +228,15 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     );
   }
 
+  /// Adds the new location to the [FlutterMap] (re-centering it if needed).
   void newLocation(double latitude, double longitude, double altitude) {
-    //print('[MapWidget] location received: $latitude, $longitude');
-
+    // Avoid overlapping markers with this simple rule.
     if (lastLocation != null &&
         (((lastLocation.latitude - latitude).abs() < 0.0001) ||
             ((lastLocation.longitude - longitude).abs() < 0.0001))) {
       return;
     }
+
     lastLocation = LatLng(latitude, longitude);
     bounds.extend(lastLocation);
 
@@ -227,9 +249,9 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
       markers.add(lastMarker(lastLocation));
     }
 
-    if (viewMode == ViewModes.trip) {
+    if (viewMode == ViewMode.trip) {
       fullTripView();
-    } else if (viewMode == ViewModes.center) {
+    } else if (viewMode == ViewMode.center) {
       centerView();
     }
   }

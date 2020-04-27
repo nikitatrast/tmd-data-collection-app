@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../backends/upload_manager.dart' show SyncStatus;
 
+/// Widget to display the current [SyncStatus]'s value.
 class SyncStatusWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

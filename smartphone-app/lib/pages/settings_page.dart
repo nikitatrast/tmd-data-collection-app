@@ -8,11 +8,15 @@ import '../boundaries/preferences_provider.dart' show CellularNetworkAllowed;
 import '../widgets/gps_auth_tile.dart';
 import '../widgets/loading_switch_tile_widget.dart';
 import '../widgets/sync_status_widget.dart';
-import '../widgets//uid_tile.dart';
+import '../widgets/uid_tile.dart';
 
+/// Page to display the app's settings and configuration options.
 class SettingsPage extends StatelessWidget {
-  final Function openDataExplorer;
-  final Function openGeoFences;
+  /// Opens a page to display local trips.
+  final void Function() openDataExplorer;
+
+  /// Opens a page to display saved [GeoFences].
+  final void Function() openGeoFences;
 
   SettingsPage(this.openDataExplorer, this.openGeoFences);
 
@@ -32,32 +36,45 @@ class SettingsPage extends StatelessWidget {
           shrinkWrap: true,
           children: ListTile.divideTiles(context: context, tiles: [
             GpsAuthTile(),
-            LoadingSwitchTile<CellularNetworkAllowed>(
-              title: const Text('Synchronisation 3G'),
-              options: [Text('Wifi uniquement'), Text('Autorisée')],
-              secondary: const Icon(Icons.wifi, size: 40),
-            ),
-            ListTile(
-                title: Text("Données locales"),
-                leading: Icon(Icons.insert_drive_file, size: 40),
-                trailing: Icon(Icons.arrow_forward_ios),
-                onTap: openDataExplorer),
-            ListTile(
-              title: Text("Zones privées"),
-              leading: Icon(Icons.security, size: 40),
-              trailing: Icon(Icons.arrow_forward_ios),
-              onTap: openGeoFences),
+            _cellularNetworkTile,
+            _dataExplorerTile,
+            _geoFenceTile,
           ]).toList()),
       Divider(),
       Expanded(child: Container()),
       Text('- Info - '),
       UidTile(),
-      _gpsStatusTile(),
+      _gpsStatusTile,
       SyncStatusWidget(),
     ]);
   }
 
-  Widget _gpsStatusTile() =>
+  /// Widget to open the data explorer page.
+  Widget get _dataExplorerTile => ListTile(
+    title: Text("Données locales"),
+    leading: Icon(Icons.insert_drive_file, size: 40),
+    trailing: Icon(Icons.arrow_forward_ios),
+    onTap: openDataExplorer
+  );
+
+  /// Widget to open the geoFence page.
+  Widget get _geoFenceTile => ListTile(
+      title: Text("Zones privées"),
+      leading: Icon(Icons.security, size: 40),
+      trailing: Icon(Icons.arrow_forward_ios),
+      onTap: openGeoFences
+  );
+
+  /// Widget to choose if synchronisation is enabled over cellular network.
+  Widget get _cellularNetworkTile =>
+      LoadingSwitchTile<CellularNetworkAllowed>(
+        title: const Text('Synchronisation 3G'),
+        options: [Text('Wifi uniquement'), Text('Autorisée')],
+        secondary: const Icon(Icons.wifi, size: 40),
+      );
+
+  /// Widget to display whether the GPS is enabled.
+  Widget get _gpsStatusTile =>
       (Platform.isIOS) ? Container() : Consumer<GPSAuth>(
           builder: (context, auth, _) => ListTile(
             title: auth.value

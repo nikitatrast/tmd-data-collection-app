@@ -13,21 +13,31 @@ import '../models.dart' show GeoFence, ModeValue, Trip;
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../boundaries/preferences_provider.dart' show UidStore;
 
+/// Status of the Uploader.
 enum UploaderStatus {
   offline, ready, uploading
 }
 
 typedef UploadDataBuilder = Future<UploadData> Function();
 
+/// Information about a new trip to upload.
 class Upload {
+  /// Trip being uploaded.
   Trip t;
+
+  /// End of [t].
   DateTime tripEnd;
+
+  /// Notifier used to communicate the status of this upload.
   ValueNotifier<UploadStatus> notifier;
+
+  /// Items to upload for trip [t].
   List<UploadDataBuilder> items;
 
   Upload(this.t, this.tripEnd, this.notifier) : items = [];
 }
 
+/// Data to be uploaded (usually sensor's data).
 class UploadData {
   String tag;
   int contentLength;
@@ -36,6 +46,7 @@ class UploadData {
   UploadData(this.tag, this.contentLength, this.content);
 }
 
+/// Container for server and client SSL certificates.
 class Certificates {
   Uint8List serverCA;
   Uint8List clientKey;
@@ -69,9 +80,15 @@ class Certificates {
   }
 }
 
+/// Uploader object used to synchronize data with the server.
 class Uploader {
+  /// Store where to fetch/persist application's UID.
   UidStore uidStore;
+
+  /// [UploaderStatus] of this Uploader.
   var status = ValueNotifier(UploaderStatus.offline);
+
+  /// [Dio] instance used for http requests.
   Future<Dio> _dio;
 
   Uploader(this.uidStore) {
@@ -105,6 +122,7 @@ class Uploader {
     });
   }
 
+  /// Starts this [Uploader], establishes connection to server.
   Future<void> start() async {
     var localUid = await uidStore.getLocalUid();
     if (localUid == null) {
@@ -133,6 +151,7 @@ class Uploader {
     });
   }
 
+  /// Register this application to get the app's UID.
   Future<void> register() async {
     var dio = await _dio;
     var deviceInfo = await _deviceInfo;
@@ -166,6 +185,7 @@ class Uploader {
       });
   }
 
+  /// Uploads [geoFences].
   Future<bool> uploadGeoFences(List<GeoFence> geoFences) async {
     status.value = UploaderStatus.uploading;
 
@@ -192,6 +212,7 @@ class Uploader {
     }
   }
 
+  /// Uploads the trip and data contained in [data].
   Future<bool> upload(Upload data) async {
     status.value = UploaderStatus.uploading;
     data.notifier.value = UploadStatus.uploading;
@@ -231,6 +252,7 @@ class Uploader {
     return !cancelled && !error;
   }
 
+  /// Helper function for a POST request.
   Future<Response> _post(Upload item, UploadData itemData, CancelToken token, Function onCancel, Function onError) async {
     var dio = await _dio;
     var uid = await uidStore.getUid();
@@ -262,6 +284,7 @@ class Uploader {
     });
   }
 
+  /// Platform-specific information about the smartphone.
   Future<String> get _deviceInfo async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     if (Platform.isAndroid) {
@@ -302,6 +325,7 @@ class Uploader {
     });
   }
 
+  /// Server's hostname
   Future<String> _host = () async {
     var encoded = await rootBundle.loadString('assets/server-info.json');
     var info = json.decode(encoded);

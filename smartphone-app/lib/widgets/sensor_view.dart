@@ -14,6 +14,7 @@ extension SensorView on Sensor {
     }
   }
 
+  /// Short user-displayable string for this [Sensor] instance.
   String get name {
     return this.toString().split('.')[1].capitalize();
   }

@@ -3,6 +3,7 @@ import 'sensor_data_provider.dart';
 import 'package:sensors/sensors.dart' as plugin;
 import '../models.dart' show Serializable;
 
+/// Data object to hold an event received from the accelerometer sensor.
 class AccelerometerData extends Serializable {
   int _millisecondsSinceEpoch;
   double _x, _y, _z;
@@ -27,6 +28,7 @@ class AccelerometerData extends Serializable {
   }
 }
 
+/// Provides data ([AccelerometerData]) from the accelerometer sensor.
 class AccelerationProvider implements SensorDataProvider<AccelerometerData> {
   Stream<AccelerometerData> get stream {
     return plugin.accelerometerEvents.map((e) => AccelerometerData.create(e));

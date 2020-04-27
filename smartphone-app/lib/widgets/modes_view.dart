@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 import '../models.dart' show Mode, ModeValue;
 
 extension ModeText on Mode {
+  /// Text used to display this [Mode] to the user.
   String get text {
     switch (this) {
       case Mode.test:
@@ -35,15 +36,19 @@ extension ModeRoute on Mode {
   };
   static final _modes = _routes.map((k, v) => MapEntry(v, k));
 
+  /// Route used to open a [TripRecorderPage] for this mode.
   String get route {
     return _routes[this];
   }
+
+  /// Parses the [route] to retrieve the corresponding [Mode].
   static Mode fromRoute(String route) {
     return _modes[route];
   }
 }
 
 extension ModeIcon on Mode {
+  /// [IconData] to display to the user for this [Mode].
   IconData get iconData {
     switch (this) {
       case Mode.test:

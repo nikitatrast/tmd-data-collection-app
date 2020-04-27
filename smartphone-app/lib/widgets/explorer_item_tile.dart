@@ -4,23 +4,46 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../backends/upload_manager.dart' show UploadStatus;
-import '../pages/explorer_page.dart' show ExplorerItem, ExplorerItemView;
+import '../pages/explorer_page.dart' show ExplorerItem;
 import '../widgets/modes_view.dart' show ModeIcon;
 import '../widgets/upload_status_view.dart';
 import '../utils.dart' show StringExtension;
 
+/// [ListTile] to interact with an [ExplorerItem] instance.
 class ExplorerItemTile extends StatelessWidget {
+  /// [ExplorerItem] to display.
   final ExplorerItem item;
+
+  /// Whether this tile is initially marked as checked.
   final checked;
-  final onChanged;
+
+  /// Callback when [checked] changes.
+  final void Function(bool) onChanged;
+
+  /// Whether to display this tile with a trailing [Checkbox].
   final asCheckbox;
+
+  /// This tile's title.
   final title;
+
+  /// This tile's subtitles.
   final subtitle;
-  final leading;
-  final onTap;
-  final onLongPress;
-  final onUpload;
-  final onCancelUpload;
+
+  /// Leading icon to be displayed before this tile's [title].
+  final Icon leading;
+
+  /// Callback when this tile is tapped.
+  final void Function() onTap;
+
+
+  /// Callback when this tile is pressed.
+  final void Function() onLongPress;
+
+  /// Callback when user taps the upload icon.
+  final void Function() onUpload;
+
+  /// Callback when user taps the cancel upload icon.
+  final void Function() onCancelUpload;
 
   ExplorerItemTile({
     this.item,
@@ -59,15 +82,17 @@ class ExplorerItemTile extends StatelessWidget {
     }
   }
 
+  /// Builds this tile's trailing widget
   Widget _trailing(BuildContext context) =>
       ChangeNotifierProvider.value(
           value:item.status,
           child: Consumer<ValueNotifier<UploadStatus>>(
-              builder: (context, _, __) => _makeTrailing(context)
+              builder: (context, _, __) => _uploadStatusIconButton(context)
           )
       );
 
-  IconButton _makeTrailing(BuildContext context) {
+  /// Builds an [IconButton] to upload or cancel upload of this [item].
+  IconButton _uploadStatusIconButton(BuildContext context) {
     var action;
     if (item.status.value == UploadStatus.local) {
       action = onUpload;

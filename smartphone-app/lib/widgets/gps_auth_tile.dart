@@ -8,6 +8,7 @@ import '../boundaries/preferences_provider.dart'
 
 import '../widgets/gps_pref_view.dart';
 
+/// [ListTile] to display or change the conditions for GPS usage.
 class GpsAuthTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

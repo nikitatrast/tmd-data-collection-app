@@ -1,10 +1,14 @@
-import 'package:accelerometertest/boundaries/data_store.dart';
-import 'package:accelerometertest/backends/upload_manager.dart';
-import 'package:accelerometertest/pages/explorer_page.dart';
+import '../backends/upload_manager.dart';
+import '../boundaries/data_store.dart';
+import '../pages/explorer_page.dart';
 import '../models.dart' show Sensor;
 
+/// Implementation of [ExplorerBackend] using [DataStore] and [UploadManager].
 class ExplorerBackendImpl implements ExplorerBackend {
+  /// Store where the trips are saved
   DataStore _store;
+
+  /// Uploader used to send trips to the server.
   UploadManager _uploader;
 
   ExplorerBackendImpl(this._store, this._uploader);

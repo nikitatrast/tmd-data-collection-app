@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../boundaries/preferences_provider.dart' show UidStore;
 
+/// Page to display the consent form and ask for device's ID.
 class RegisterPage extends StatefulWidget {
   final VoidCallback next;
   final UidStore uidStore;

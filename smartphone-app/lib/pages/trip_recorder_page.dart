@@ -5,11 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../backends/gps_auth.dart';
-import '../boundaries/location_provider.dart' show LocationData;
 import '../widgets/modes_view.dart';
 import '../widgets/map_widget.dart';
 import '../widgets/gps_auth_tile.dart';
 
+/// Backend to provide data to [TripRecorderPage].
 abstract class TripRecorderBackend {
   Future<bool> start(Mode tripMode);
   Future<bool> save();
@@ -18,15 +18,21 @@ abstract class TripRecorderBackend {
   Stream<LocationData> locationStream();
 }
 
+/// Page to record sensor's data during a trip.
 class TripRecorderPage extends StatefulWidget {
+
+  /// Travel mode of the current [Trip].
   final Mode mode;
-  final Function exit;
-  final Function recorderBuilder;
+
+  /// Callback used to open a new page when this page exits.
+  final void Function() onExit;
+
+  final TripRecorderBackend backend;
 
   TripRecorderPage({
     @required this.mode,
-    @required this.exit,
-    @required this.recorderBuilder,
+    @required this.onExit,
+    @required this.backend,
   });
 
   @override
@@ -40,7 +46,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
   @override
   void initState() {
     super.initState();
-    recorder = widget.recorderBuilder();
+    recorder = widget.backend;
     recorder.start(widget.mode);
     createdTime = DateTime.now();
   }
@@ -60,6 +66,19 @@ class TripRecorderPageState extends State<TripRecorderPage> {
     recorder.dispose(); // make sure recorder's resources are released!
   }
 
+  Widget mainPane(BuildContext context) {
+    return Consumer<GPSAuth>(builder: (context, auth, _) {
+      if (auth.value != true) {
+        return noGPSPane();
+      } else {
+        return Column(children: [
+          Expanded(child: MapWidget(recorder.locationStream())),
+          GpsAuthTile(),
+        ]);
+      }
+    });
+  }
+
   Widget noGPSPane() {
     return Column(mainAxisSize: MainAxisSize.max, children: [
       Container(
@@ -75,19 +94,6 @@ class TripRecorderPageState extends State<TripRecorderPage> {
       Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
       GpsAuthTile(),
     ]);
-  }
-
-  Widget mainPane(BuildContext context) {
-    return Consumer<GPSAuth>(builder: (context, auth, _) {
-      if (auth.value == true) {
-        return Column(children: [
-          Expanded(child: MapWidget(recorder.locationStream())),
-          GpsAuthTile(),
-        ]);
-      } else {
-        return noGPSPane();
-      }
-    });
   }
 
   @override
@@ -139,7 +145,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
         onPressed: () {
           onCancel().then((value) {
             Navigator.of(context).pop(); // pop dialog
-            widget.exit();
+            widget.onExit();
           });
         });
     AlertDialog alert = AlertDialog(
@@ -198,7 +204,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
     );
     onSave().then((value) {
       Navigator.of(context, rootNavigator: true).pop(); // pop dialog
-      widget.exit();
+      widget.onExit();
     });
   }
 }

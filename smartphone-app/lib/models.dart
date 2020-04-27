@@ -1,9 +1,27 @@
-enum Mode { test, walk, run, bike, motorcycle, car, bus, metro, train }
+/// Travel mode for a trip.
+enum Mode {
+  /// Test-mode to notify the server that this trip should be ignored.
+  test,
+  walk,
+  run,
+  bike,
+  motorcycle,
+  car,
+  bus,
+  metro,
+  train
+}
+
+/// Modes that the user can use to record a new trip.
 const List<Mode> enabledModes = Mode.values;
 
+
 extension ModeValue on Mode {
+
+  /// Slug for this [Mode].
   String get value => this.toString().split('.').last;
 
+  /// Parses a slug into the corresponding [Mode].
   static Mode fromValue(String value) {
     for (var m in Mode.values) {
       if (m.value == value)
@@ -13,6 +31,7 @@ extension ModeValue on Mode {
   }
 }
 
+/// Data object to identify a trip.
 class Trip {
   DateTime start;
   Mode mode;
@@ -34,11 +53,14 @@ abstract class Serializable {
   String serialize();
 }
 
+/// Sensors from which data can be collected.
 enum Sensor { accelerometer, gps }
 
 extension SensorValue on Sensor {
+  /// Slug for this [Sensor].
   String get value => this.toString().split('.').last;
 
+  /// Parses a slug into the corresponding [Sensor].
   static Sensor fromValue(String value) {
     for (var m in Sensor.values) {
       if (m.value == value)
@@ -48,6 +70,7 @@ extension SensorValue on Sensor {
   }
 }
 
+/// Data object to hold an event received from the GPS sensor.
 class LocationData extends Serializable {
   final int millisecondsSinceEpoch;
   final double latitude; // Latitude, in degrees
@@ -69,11 +92,12 @@ class LocationData extends Serializable {
     heading
   })
       : _accuracy = accuracy
-  , _speed = speed
-  , _speedAccuracy = speedAccuracy
-  , _heading = heading
+      , _speed = speed
+      , _speedAccuracy = speedAccuracy
+      , _heading = heading
   ;
 
+  /// Parses a Serialized instance.
   static LocationData parse(String str) {
     final parts = str.split(',');
     return LocationData(
@@ -88,6 +112,7 @@ class LocationData extends Serializable {
     );
   }
 
+  /// Serializes this instance.
   String serialize() {
     return '$millisecondsSinceEpoch,'
         '$latitude,$longitude,$altitude,$_accuracy,'
@@ -95,6 +120,7 @@ class LocationData extends Serializable {
   }
 }
 
+/// Data object to represent a geo fence.
 class GeoFence implements Serializable {
   double latitude;
   double longitude;
@@ -104,10 +130,12 @@ class GeoFence implements Serializable {
   GeoFence(this.latitude, this.longitude, this.radiusInMeters, String description)
   : description = description.trim().replaceAll(';', ',');
 
+  /// Serializes this instance.
   String serialize() {
     return '$latitude; $longitude; $radiusInMeters; $description';
   }
 
+  /// Parses a serialized instance.
   GeoFence.parse(String str) {
     var parts = str.split(';');
     assert(parts.length == 4);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// Generic [SwitchTile] extension with three states: true / false / loading.
 class LoadingSwitchTile<T extends ValueNotifier> extends StatelessWidget {
   final title;
   final subtitle;

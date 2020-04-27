@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'package:accelerometertest/boundaries/acceleration_provider.dart';
-import 'package:async/async.dart';
-
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:accelerometertest/backends/gps_auth.dart';
+import 'package:async/async.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../backends/gps_auth.dart';
+import '../boundaries/acceleration_provider.dart';
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart' show Mode, Sensor, SensorValue, Trip, LocationData;
@@ -16,27 +15,56 @@ import '../boundaries/location_provider.dart' show LocationProvider;
 
 import 'package:foreground_service/foreground_service.dart';
 
+/// Implementation of [TripRecorderBackend] to allow background processing
+/// on Android.
+///
+/// The implementation records sensor data using an Android foreground service.
+///
 class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
-  final _auth = Map<Sensor, ValueNotifier<bool>>();
+
+  /// Whether use of [Sensor] is allowed.
+  final _isSensorEnabled = Map<Sensor, ValueNotifier<bool>>();
+
+  /// Callbacks to request sensor's permission before recording
+  final _requestPermission = Map<Sensor, Future<void> Function()>();
+
+  /// Functions listening to [_isSensorEnabled] values.
   final _authListeners = Map<Sensor, void Function()>();
+
+  /// File in which sensor data is recorded.
   final _recordingFiles = Map<Sensor, RecordingFile>();
 
+  /// Store where the newly recorded trip will be persisted.
   DataStore _storage;
+
+  /// The newly recorded trip.
   Trip _trip;
+
+  /// Completes when [IsolateMessageType.allRecordingsFinished]
+  /// message is received.
   Completer<DateTime> _tripEnd;
+
+  /// Used to provide a [Stream<LocationData>] to the UI.
   StreamController<LocationData> _outputStream = StreamController.broadcast();
 
 
   TripRecorderBackendAndroidImpl(GPSAuth gpsAuth, this._storage) {
+    // By default, all sensors are enabled and no permission required.
     for (var sensor in Sensor.values) {
-      _auth[sensor] = (sensor == Sensor.gps) ? gpsAuth : ValueNotifier(true);
+      _isSensorEnabled[sensor] = ValueNotifier(true);
+      _requestPermission[sensor] = () async {};
     }
+    // Special case for the GPS.
+    _isSensorEnabled[Sensor.gps] = gpsAuth;
+    _requestPermission[Sensor.gps] = LocationProvider().requestPermission;
   }
 
+  /// Initializes member variables, starts the foreground service and
+  /// sensor data recording.
   @override
   Future<bool> start(Mode tripMode) async {
     await Isolate.start();
-    await ForegroundService.setupIsolateCommunication(onIsolateMessage);
+    await ForegroundService.setupIsolateCommunication(_onIsolateMessage);
 
     _trip = Trip();
     _trip.mode = tripMode;
@@ -47,7 +75,21 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
     return true;
   }
 
-  void onIsolateMessage(dynamic message) async {
+  /// Function to respond to a message from the foreground service Isolate.
+  ///
+  /// Messages ordering between the main thread and foreground service is:
+  /// 1. <-- [IsolateMessageType.isolateReady]
+  /// 2. --> [MainMessageType.startRecordingSensor]
+  /// 3. <-- [IsolateMessageType.newLocation]
+  /// 4. <-- [IsolateMessageType.newLocation]
+  /// 5. <-- ...
+  /// 6. --> [MainMessageType.stopRecordingSensor]
+  /// 7. <-- [IsolateMessageType.recordingEnded].
+  /// 8. (eventually repeat steps 2. to 7.)
+  /// 9. --> [MainMessageType.terminate]
+  /// 10. <-- [IsolateMessageType.allRecordingsFinished]
+  ///
+  void _onIsolateMessage(dynamic message) async {
     var m = Messages.parseIsolateMessage(message);
     print('[TripRecored] message received: ${m.type}');
 
@@ -57,17 +99,22 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
         break;
 
       case IsolateMessageType.isolateReady:
-        for (var sensor in _auth.keys) {
+        for (var sensor in _isSensorEnabled.keys) {
           final listener = () => _authChanged(sensor);
           _authListeners[sensor] = listener;
-          _auth[sensor].addListener(listener);
-          listener(); // trigger the logic at least once
+          _isSensorEnabled[sensor].addListener(listener);
+          listener(); // trigger the logic at least once now
         }
         break;
 
       case IsolateMessageType.recordingEnded:
         var sensor = SensorValue.fromValue(m.data);
-        print('[TripRecorder] recordingEnded for $sensor, (${m.data})');
+        if (!_isRecording(sensor)) {
+          print('[TripRecorder] recordingEnded for $sensor received'
+                ' but was not recording !!');
+        } else {
+          print('[TripRecorder] recordingEnded for $sensor, (${m.data})');
+        }
         var file = _recordingFiles[sensor];
         _recordingFiles.remove(sensor);
         _storage.closeRecordingFile(file);
@@ -86,13 +133,22 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   }
 
   Future<void> _authChanged(Sensor sensor) async {
-    print('[TripRecorder] _authChanged($sensor): ${_auth[sensor]?.value}');
+    var enabled = _isSensorEnabled[sensor]?.value;
 
-    if (_auth[sensor]?.value == true) {
-      if (sensor == Sensor.gps) {
-        // permission must be requested in main thread, not in Isolate
-        await LocationProvider().requestPermission();
-      }
+    print('[TripRecorder] _authChanged($sensor): $enabled,'
+          ' recording: ${_isRecording(sensor)}');
+
+    if (enabled == null) {
+      // Nothing to do.
+      return;
+    }
+
+    if (enabled && !_isRecording(sensor)) {
+      // Start recording sensor's data.
+
+      // Permissions must be requested in main thread, not isolate.
+      await _requestPermission[sensor]();
+
       var file = await _storage.openRecordingFile(_trip, sensor);
       _recordingFiles[sensor] = file;
       Messages.sendToIsolate(MainMessageType.startRecordingSensor, {
@@ -100,22 +156,29 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
         'filepath': file.path,
       });
 
-    } else if (_auth[sensor]?.value == false) {
+    } else {
+      // Stop recording sensor's data.
       Messages.sendToIsolate(MainMessageType.stopRecordingSensor, {
         'sensor': sensor.value
       });
     }
-    // nothing if _auth[sensor].value == null
   }
 
+  bool _isRecording(Sensor sensor) {
+    return _recordingFiles.keys.contains(sensor);
+  }
+
+  /// Signals to stop recording sensors' data.
   Future<void> stop() async {
-    for (var sensor in _auth.keys) {
-      _auth[sensor].removeListener(_authListeners[sensor]);
+    for (var sensor in _isSensorEnabled.keys) {
+      _isSensorEnabled[sensor].removeListener(_authListeners[sensor]);
       _authListeners[sensor] = null;
     }
 
     await ForegroundService.foregroundServiceIsStarted();
     Messages.sendToIsolate(MainMessageType.terminate);
+
+    // [_tripEnd] is completed when Isolate answers back.
     await _tripEnd.future;
   }
 
@@ -136,6 +199,10 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
 
   @override
   void dispose() {
+    // [save()] or [cancel()] should be called before [dispose()]
+    // and therefore, [_tripEnd] should be completed.
+    // To make sure the Isolate stops properly,
+    // double check that [_tripEnd] is completed here.
     if (!_tripEnd.isCompleted) {
       stop();
       print('[TripRecorder] dispose(): not exited properly.');
@@ -157,6 +224,8 @@ Future<void> setupForegroundServiceNotification() async {
 }
 
 class Isolate {
+
+  /// Starts the foreground service.
   static Future<void> start() async {
     if (!(await ForegroundService.foregroundServiceIsStarted())) {
       await ForegroundService.setServiceFunctionAsync(false);
@@ -166,9 +235,15 @@ class Isolate {
     }
   }
 
+
+  /// Service function running in the foreground service.
+  ///
+  /// See [TripRecorderBackendAndroidImpl._onIsolateMessage()].
   static Future<void> run() async {
     print('[Isolate] --- started --- ');
     await ForegroundService.notification.setText('Trip started at (${DateTime.now()}');
+
+    /// Completes when [MainMessageType.terminate] is received.
     var isTerminated = Completer();
 
     Map<Sensor, SensorDataProvider> providers = {
@@ -192,10 +267,12 @@ class Isolate {
           if (isRecording[sensor] != null && !isRecording[sensor].isCompleted)
             print('[Isolate] received startRecording($sensor) but already recording');
           else {
+            /// Completes when [MainMessageType.stopRecordingSensor] is received.
             isRecording[sensor] = Completer();
+
             runningOperations.add(recordSensorData(
                 sensor,
-                providers,
+                providers[sensor],
                 filePath,
                 isRecording[sensor]
             ));
@@ -203,12 +280,13 @@ class Isolate {
             if (sensor == Sensor.gps) {
               // also forward location data to backend for display in UI
               var gpsStream = providers[Sensor.gps].stream;
-              recorderStream(gpsStream, isRecording[sensor].future).listen((
-                  position) {
-                var loc = position as LocationData;
-                Messages.sendToMain(
-                    IsolateMessageType.newLocation, loc.serialize());
-              });
+              recorderStream(gpsStream, isRecording[sensor].future).listen(
+                (position) {
+                  var loc = position as LocationData;
+                  Messages.sendToMain(
+                      IsolateMessageType.newLocation, loc.serialize());
+                }
+              );
             }
           }
           break;
@@ -231,6 +309,7 @@ class Isolate {
             terminateMessageReceived = true;
 
             for (var c in isRecording.values) {
+              // Signals. to stop recording this sensor's data.
               if (!c.isCompleted)
                 c.complete();
             }
@@ -249,15 +328,24 @@ class Isolate {
     await ForegroundService.stopForegroundService();
   }
 
-  static Future<void> recordSensorData(Sensor s, providers, filePath, isRecording) async {
+
+  /// Streams data of [provider] into [filePath], completes when streaming ends.
+  static Future<void> recordSensorData(
+      Sensor s,
+      SensorDataProvider provider,
+      String filePath,
+      Completer isRecording
+      ) async {
     var file = File(filePath);
-    var provider = providers[s];
     var sink = file.openWrite(mode: FileMode.writeOnlyAppend);
+
+    // [recorderStream()] stops streaming as soon as [isRecording] completes.
     var sourceStream = recorderStream(
         provider.stream, isRecording.future);
+
     Stream<String> strings = sourceStream.map((x) => x.serialize());
     strings = strings.map((str) => '${str.trim()}\n'); // one per line
-    var c = Completer();
+    var sinkIsClosed = Completer();
     var operation = sink
         .addStream(strings.transform(utf8.encoder))
         .then((v) async {
@@ -268,13 +356,17 @@ class Isolate {
         await file.delete();
         print('[Isolate] 0-length $s file deleted');
       }
-      c.complete();
+      sinkIsClosed.complete();
     }
     );
-    await c.future;
+
+    /// Waits until [operation] is done.
+    await sinkIsClosed.future;
     Messages.sendToMain(IsolateMessageType.recordingEnded, s.value);
   }
 
+  /// Wraps [input] into a [Stream] that closes as soon as
+  /// [signal] is completed.
   static Stream<T> recorderStream<T>(Stream<T> input, Future signal) {
     // Provider won't close stream
     // So, this function wraps the Provider's streams and closes when
@@ -292,11 +384,13 @@ enum MainMessageType {
   startRecordingSensor, stopRecordingSensor, terminate
 }
 
+/// Message sent from the foreground service to the main Isolate.
 class IsolateMessage {
   IsolateMessageType type;
   String data;
 }
 
+/// Message sent from main Isolate to the foreground service.
 class MainMessage {
   MainMessageType type;
   Map data;

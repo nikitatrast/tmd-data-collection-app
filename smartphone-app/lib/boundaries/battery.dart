@@ -1,11 +1,13 @@
 import 'package:battery/battery.dart' as plugin;
 import 'package:flutter/cupertino.dart';
 
+/// Charging/Discharging state of the device's battery.
 enum BatteryState {
   charging,
   discharging
 }
 
+/// Provides information about device's battery level and state.
 class BatteryNotifier extends ValueNotifier<BatteryState> {
   BatteryNotifier() : super(null) {
     _source.onBatteryStateChanged.listen((state) =>

@@ -5,6 +5,7 @@ import '../widgets/modes_view.dart';
 import '../widgets/sensor_view.dart';
 import '../pages/explorer_page.dart';
 
+/// Page to display information about an [ExplorerItem].
 class InfoPage extends StatelessWidget {
   final ExplorerItem trip;
   final ExplorerBackend backend;

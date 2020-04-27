@@ -1,29 +1,49 @@
 import 'dart:async';
-import 'package:accelerometertest/boundaries/acceleration_provider.dart';
-import 'package:accelerometertest/boundaries/location_provider_background.dart';
 import 'package:async/async.dart';
 
-import 'package:accelerometertest/backends/gps_auth.dart';
+import '../backends/gps_auth.dart';
 
+import '../boundaries/acceleration_provider.dart';
+import '../boundaries/location_provider_background.dart';
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
-import '../models.dart' show Mode, Sensor, Trip, LocationData;
+
+import '../models.dart' show LocationData, Mode, Sensor, Serializable, Trip;
+
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 
+/// Implementation of [TripRecorderBackend] using a
+/// [LocationProviderBackground] by default.
+///
+/// The [LocationProviderBackground] keeps this backend
+/// alive when the app is in background. Hence, the GPS must not be disabled
+/// to ensure proper data collection.
+///
 class TripRecorderBackendImpl implements TripRecorderBackend {
   Map<Sensor, SensorDataProvider> _providers;
+
+  /// Where to store the newly recorded trip.
   DataStore _storage;
+
+  /// Whether we can use the GPS.
   GPSAuth gpsAuth;
+
+  /// The newly recorded trip.
   Trip _trip;
+
+  /// Completes when recordings must stop.
   Completer<DateTime> _tripEnd;
 
-  TripRecorderBackendImpl(this.gpsAuth, this._storage, {providers}) {
+  TripRecorderBackendImpl(this.gpsAuth, this._storage, {
+    Map<Sensor, SensorDataProvider> providers
+  }) {
     _providers = providers ?? {
       Sensor.gps: LocationProviderBackground(gpsAuth),
       Sensor.accelerometer: AccelerationProvider(),
     };
   }
 
+  /// Initializes member variables and starts sensor recordings.
   @override
   Future<bool> start(Mode tripMode) async {
     _trip = Trip();
@@ -32,9 +52,12 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     _tripEnd = Completer();
 
     for (var sensor in _providers.keys) {
-      var provider = _providers[sensor];
       print('[TripRecorder] startRecording for $sensor');
-      _storage.recordData(_trip, sensor, recorderStream(provider.stream, sensor.toString()));
+      var provider = _providers[sensor];
+      // [provider.stream] never closes, wrapping it with [_recorderStream()]
+      // creates a stream that closes when [_tripEnd] completes.
+      var dataStream = _recorderStream<Serializable>(provider.stream, sensor.toString());
+      _storage.recordData(_trip, sensor, dataStream);
     }
     return true;
   }
@@ -42,6 +65,9 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   void stop() {
     if (!_tripEnd.isCompleted) {
       _tripEnd.complete(DateTime.now());
+      // Note:
+      // [_recorderStream()] will close once [_tripEnd.isCompleted],
+      // thus stopping the sensor data recordings.
     }
   }
 
@@ -49,8 +75,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   Future<bool> save() async {
     print('[TripRecorder] save()');
     stop();
-    var tripEnd = await _tripEnd.future;
-    await _storage.save(_trip, tripEnd);
+    await _storage.save(_trip, await _tripEnd.future);
     return true;
   }
 
@@ -63,6 +88,10 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
 
   @override
   void dispose() {
+    // [save()] or [cancel()] should be called before [dispose()]
+    // and therefore, [_tripEnd] should be completed.
+    // To make sure the [_recorderStream()] closes properly,
+    // double check that [_tripEnd] is completed here.
     if (!_tripEnd.isCompleted) {
       stop();
       print('[TripRecorder] dispose(): not exited properly.');
@@ -74,7 +103,9 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     return _providers[Sensor.gps].stream;
   }
 
-  Stream<T> recorderStream<T>(Stream<T> input, String tag) {
+  /// Wraps [input] into a [Stream] that closes as soon as
+  /// [_tripEnd] is completed.
+  Stream<T> _recorderStream<T>(Stream<T> input, String tag) {
     // Provider won't close stream
     // So, this function wraps the Provider's streams and closes when
     // recording is done.

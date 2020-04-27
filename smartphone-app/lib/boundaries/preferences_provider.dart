@@ -2,24 +2,43 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Whether user allowed to use cellular network for synchronization with the
+/// server.
 class CellularNetworkAllowed extends ValueNotifier<bool> {
   CellularNetworkAllowed() : super(null);
 }
 
+/// Current user preference regarding GPS usage.
 class GPSPrefNotifier extends ValueNotifier<GPSPref> {
   GPSPrefNotifier() : super(null);
 }
 
+/// User preference regarding GPS usage.
 enum GPSPref {
+  /// Always allow GPS usage.
   always,
+
+  /// Only allow GPS usage when device is charging.
   whenCharging,
+
+  /// Only allow GPS usage when device's battery level is above 20%.
   batteryLevel20,
+
+  /// Only allow GPS usage when device's battery level is above 40%.
   batteryLevel40,
+
+  /// Only allow GPS usage when device's battery level is above 60%.
   batteryLevel60,
+
+  /// Only allow GPS usage when device's battery level is above 80%.
   batteryLevel80,
+
+  /// Do not allow GPS usage.
   never
 }
+
 extension GPSPrefValue on GPSPref {
+  /// A slug representing this [GPSPref].
   String get value => (const {
     GPSPref.always: 'always',
     GPSPref.batteryLevel20: 'batteryLevel20',
@@ -31,12 +50,16 @@ extension GPSPrefValue on GPSPref {
   })[this];
 }
 
+/// Data store where this app's (local-UID) and UID can be persisted.
 class UidStore {
   Future<String> getLocalUid() async {
     var s = await SharedPreferences.getInstance();
     return s.getString(_keyLocalUid);
   }
 
+  /// Persists this app's local ID.
+  ///
+  /// When [localUid] is `null`, the previously persisted ID is removed.
   Future<void> setLocalUid(String localUid) async {
     print('[UidStore] setLocalUid($localUid)');
 
@@ -50,11 +73,15 @@ class UidStore {
     await s.setString(_keyLocalUid, localUid);
   }
 
+  /// Gets this app's UID, may return `null`.
   Future<String> getUid() async {
     var s = await SharedPreferences.getInstance();
     return s.getString(_keyUid);
   }
 
+  /// Persists [uid] as this app's UID.
+  ///
+  /// If [uid] is `null`, the previously persisted ID is removed.
   Future<void> setUid(String uid) async {
     var s = await SharedPreferences.getInstance();
 
@@ -71,9 +98,15 @@ class UidStore {
   static const _keyUid = 'uid';
 }
 
+/// Store where user's preferences can be persisted.
 class PreferencesProvider {
+  /// User's preferences regarding cellular network usage for synchronization.
   var cellularNetwork = CellularNetworkAllowed();
+
+  /// User's preferences regarding GPS usage.
   var gpsAuthNotifier = GPSPrefNotifier();
+
+  /// This app's (local-uid) and uid store.
   var uidStore = UidStore();
 
   PreferencesProvider() {
