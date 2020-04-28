@@ -12,6 +12,7 @@ abstract class ExplorerBackend {
   Future<int> nbEvents(ExplorerItem item, Sensor s);
   void scheduleUpload(ExplorerItem item);
   void cancelUpload(ExplorerItem item);
+  List<Future<void> Function(Trip)> get onTripDeleted;
 }
 
 /// An Item that can be displayed in [ExplorerPage].
@@ -61,6 +62,13 @@ class ExplorerPageState extends State<ExplorerPage> {
     super.initState();
     selected = Set();
     widget.backend.items().then((items) => setState(() => this.items = List.from(items)));
+    widget.backend.onTripDeleted.add(_onTripDeleted);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    widget.backend.onTripDeleted.remove(_onTripDeleted);
   }
 
   @override
@@ -130,16 +138,20 @@ class ExplorerPageState extends State<ExplorerPage> {
     var results = toDelete.map((item) async {
       print('[ExplorerWidget] Deletion request for $item');
       var ok = await widget.backend.delete(item);
+      // Note: [_onTripDeleted] callback will update the UI.
       print('[ExplorerWidget] deletion status: $ok');
-      if (ok) {
-        assert(selected.remove(item));
-        assert(items.remove(item));
-      }
       return ok;
     });
     var allOk = await results.reduce((a, b) async => await a && await b);
-    setState(() {});
     return allOk;
+  }
+
+  Future<void> _onTripDeleted(Trip t) {
+    setState(() {
+      selected.removeWhere((item) => item == t);
+      items.removeWhere((item) => item == t);
+    });
+    return (() async {})();
   }
 
   /// Schedules [item] to be uploaded to the server.

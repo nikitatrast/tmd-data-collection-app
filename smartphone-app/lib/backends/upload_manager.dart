@@ -96,6 +96,17 @@ class UploadManager {
     }
   }
 
+  /// Removes [t] from the [_pendingList] and cancels upload.
+  Future<void> beforeTripDeletion(Trip t) async {
+    print('[UploadManager] unlinking trip before deletion');
+    var notifier = await _notifiers[t];
+    var toCancel = [UploadStatus.pending, UploadStatus.uploading];
+    if (toCancel.contains(notifier.value)) {
+      notifier.value = UploadStatus.local;
+    }
+    await _notifiers.delete(t);
+  }
+
   /// Cancels upload of [t].
   void cancelUpload(Trip t) async {
     var notifier = await _notifiers[t];
@@ -155,7 +166,11 @@ class UploadManager {
 
   Future<bool> _sendToUploader(Trip t) async {
     var notifier = await _notifiers[t];
-    var tripEnd = (await _store.getInfo(t)).end;
+    var info = await _store.getInfo(t);
+    if (info == null) {
+
+    }
+    var tripEnd = info.end;
     var up = Upload(t, tripEnd, notifier);
 
     for (Sensor sensor in Sensor.values) {
@@ -332,6 +347,13 @@ class SourceNotifierStore {
       notifiers[trip] = _createNotifier(trip, _parse[str]);
     }
     _loaded.complete(notifiers);
+  }
+
+  Future<void> delete(Trip t) async {
+    var notifiers = await _notifiers;
+    var notifier = notifiers[t];
+    notifiers.remove(notifier);
+    notifier.dispose();
   }
 
   Future<void> writeInStore(Trip t) async {

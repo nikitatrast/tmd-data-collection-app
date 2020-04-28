@@ -1,7 +1,7 @@
 import '../backends/upload_manager.dart';
 import '../boundaries/data_store.dart';
 import '../pages/explorer_page.dart';
-import '../models.dart' show Sensor;
+import '../models.dart' show Sensor, Trip;
 
 /// Implementation of [ExplorerBackend] using [DataStore] and [UploadManager].
 class ExplorerBackendImpl implements ExplorerBackend {
@@ -47,4 +47,7 @@ class ExplorerBackendImpl implements ExplorerBackend {
   void cancelUpload(ExplorerItem item) {
     _uploader.cancelUpload(item);
   }
+
+  List<Future<void> Function(Trip)> get onTripDeleted =>
+      _store.beforeTripDeletion;
 }

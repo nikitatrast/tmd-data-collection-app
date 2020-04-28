@@ -32,6 +32,9 @@ class RecordedData {
 /// Callback called when a new trip is persisted in the [DataStore].
 typedef NewTripCallback = void Function(Trip t);
 
+/// Callback called when a new trip is deleted from the [DataStore].
+typedef BeforeTripDeletionCallback = Future<void> Function(Trip t);
+
 /// Callback called when [GeoFence]s are persited in the [DataStore].
 typedef GeoFencesChangedCallback = void Function();
 
@@ -91,6 +94,9 @@ class DataStore implements ReadOnlyStore, GeoFenceStore {
 
   /// Called when a new [Trip] is saved.
   NewTripCallback onNewTrip = (Trip t) {};
+
+  /// Called when a [Trip] is deleted.
+  List<BeforeTripDeletionCallback> beforeTripDeletion = [];
 
   /// Called when a [GeoFence] is added or deleted.
   GeoFencesChangedCallback onGeoFencesChanged = () {};
@@ -241,6 +247,9 @@ class DataStore implements ReadOnlyStore, GeoFenceStore {
   /// Deletes all data persisted for trip [t].
   Future<bool> delete(Trip t) async {
     await awaitRecordingsEnded(t);
+    // Make a copy of beforeTripDeletion to allow concurrent modifications.
+    for (var callback in List.from(beforeTripDeletion))
+      await callback(t);
     var path = await _dirPath(t);
     Directory(path).deleteSync(recursive: true);
     return true;

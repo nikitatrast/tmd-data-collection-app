@@ -44,6 +44,7 @@ void main() async {
   var storage = DataStore();
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
+  storage.beforeTripDeletion.add(uploadManager.beforeTripDeletion);
   storage.onGeoFencesChanged = uploadManager.scheduleGeoFenceUpload;
 
   uploadManager.start();
