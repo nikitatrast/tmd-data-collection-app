@@ -18,7 +18,10 @@ class SettingsPage extends StatelessWidget {
   /// Opens a page to display saved [GeoFences].
   final void Function() openGeoFences;
 
-  SettingsPage(this.openDataExplorer, this.openGeoFences);
+  /// Opens the page to display consent form.
+  final void Function() openConsent;
+
+  SettingsPage(this.openDataExplorer, this.openGeoFences, this.openConsent);
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +40,7 @@ class SettingsPage extends StatelessWidget {
           children: ListTile.divideTiles(context: context, tiles: [
             GpsAuthTile(),
             _cellularNetworkTile,
+            _consentTile,
             _dataExplorerTile,
             _geoFenceTile,
           ]).toList()),
@@ -48,6 +52,14 @@ class SettingsPage extends StatelessWidget {
       SyncStatusWidget(),
     ]);
   }
+
+  /// Widget to open the page with consent text.
+  Widget get _consentTile => ListTile(
+    title: Text('Notice d\'information'),
+    leading: Icon(Icons.info_outline, size: 40),
+    trailing: Icon(Icons.arrow_forward_ios),
+    onTap: openConsent,
+  );
 
   /// Widget to open the data explorer page.
   Widget get _dataExplorerTile => ListTile(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:tmd/pages/consent_page.dart';
 
 import 'package:tmd/boundaries/sensor_data_provider.dart';
 
@@ -114,6 +115,7 @@ class MyApp extends StatelessWidget {
           '/data-explorer': _dataExplorerPage,
           '/info': _infoPage,
           '/geofences': _geoFencesPage,
+          '/consent': (context) => ConsentPage(),
         });
   }
 
@@ -163,6 +165,7 @@ class MyApp extends StatelessWidget {
   Widget _settingsPage(context) => SettingsPage(
         () => Navigator.of(context).pushNamed('/data-explorer'),
         () => Navigator.of(context).pushNamed('/geofences'),
+        () => Navigator.of(context).pushNamed('/consent'),
       );
 
   Widget _dataExplorerPage(context) => Consumer<ExplorerBackend>(
