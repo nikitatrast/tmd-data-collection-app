@@ -32,7 +32,7 @@ extension ModeValue on Mode {
 }
 
 /// Data object to identify a trip.
-class Trip {
+class Trip implements Serializable {
   DateTime start;
   Mode mode;
 
@@ -46,6 +46,26 @@ class Trip {
   @override
   int get hashCode {
     return start.millisecondsSinceEpoch.hashCode ^ mode.hashCode;
+  }
+
+  @override
+  String serialize() {
+    var ms = start.millisecondsSinceEpoch;
+    var v = mode.value;
+    return 'Trip($ms, $v)';
+  }
+
+  static Trip parse(String str) {
+    try {
+      var match = RegExp(r'Trip\(([0-9]+), (.+)\)').firstMatch(str);
+      var t = Trip();
+      t.start = DateTime.fromMillisecondsSinceEpoch(int.parse(match.group(1)));
+      t.mode = ModeValue.fromValue(match.group(2));
+      return t;
+    } on Exception catch (e) {
+      print('[Trip.parse] $e');
+      return null;
+    }
   }
 }
 

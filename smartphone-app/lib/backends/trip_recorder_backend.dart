@@ -21,10 +21,13 @@ import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 /// to ensure proper data collection.
 ///
 class TripRecorderBackendImpl implements TripRecorderBackend {
+  /// Line prefix used for logging
+  static String logPrefix = 'TripRecorderBackend';
+
   Map<Sensor, SensorDataProvider> _providers;
 
   /// Where to store the newly recorded trip.
-  DataStore _storage;
+  TripRecorderStorage _storage;
 
   /// Whether we can use the GPS.
   GPSAuth gpsAuth;
@@ -35,15 +38,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   /// Completes when recordings must stop.
   Completer<DateTime> _tripEnd;
 
-  TripRecorderBackendImpl(this.gpsAuth, this._storage, {
-    Map<Sensor, SensorDataProvider> providers
-  }) {
-    _providers = providers ?? {
-      Sensor.gps: LocationProviderBackground(gpsAuth),
-      Sensor.accelerometer: AccelerationProvider(),
-      Sensor.gyroscope: GyroscopeProvider(),
-    };
-  }
+  TripRecorderBackendImpl(this.gpsAuth, this._storage, this._providers);
 
   /// Initializes member variables and starts sensor recordings.
   @override
@@ -54,7 +49,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     _tripEnd = Completer();
 
     for (var sensor in _providers.keys) {
-      print('[TripRecorder] startRecording for $sensor');
+      print('[$logPrefix] startRecording for $sensor');
       var provider = _providers[sensor];
       // [provider.stream] never closes, wrapping it with [_recorderStream()]
       // creates a stream that closes when [_tripEnd] completes.
@@ -75,7 +70,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
 
   @override
   Future<bool> save() async {
-    print('[TripRecorder] save()');
+    print('[$logPrefix] save()');
     stop();
     await _storage.save(_trip, await _tripEnd.future);
     return true;
@@ -83,7 +78,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
 
   @override
   Future<void> cancel() async {
-    print('[TripRecorder] cancel()');
+    print('[$logPrefix] cancel()');
     stop();
     await _storage.delete(_trip);
   }
@@ -96,7 +91,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     // double check that [_tripEnd] is completed here.
     if (!_tripEnd.isCompleted) {
       stop();
-      print('[TripRecorder] dispose(): not exited properly.');
+      print('[$logPrefix] dispose(): not exited properly.');
     }
   }
 

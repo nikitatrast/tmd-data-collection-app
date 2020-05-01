@@ -1,20 +1,23 @@
 import 'dart:async';
 
 import 'package:geolocator/geolocator.dart' as plugin;
-import 'package:location/location.dart' as plugin2;
 
+import '../backends/gps_auth.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart' show LocationData;
 
 /// Provides data ([LocationData]) from the GPS sensor.
 class LocationProvider implements SensorDataProvider<LocationData> {
-  /// Subscription to the stream of location provided by the plugin.
-  StreamSubscription subscriptionToPlugin;
+  /// Whether GPS use is allowed.
+  GPSAuth auth;
 
-  /// Controller used to output [LocationData].
+  /// Subscription to the GPS sensor's stream.
+  StreamSubscription subscription;
+
+  /// Controller for the output stream of LocationData.
   StreamController<LocationData> controller;
 
-  LocationProvider() {
+  LocationProvider(this.auth) {
     controller = StreamController<LocationData>.broadcast(
       onListen: startStreaming,
       onCancel: stopStreaming,
@@ -27,35 +30,46 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void startStreaming() async {
-    if (subscriptionToPlugin == null) {
-      subscriptionToPlugin = _subscribeToPluginStream(controller);
-      print('[LocationProvider] Streaming started');
-    } else {
-      print('[LocationProvider] Streaming already started');
-    }
+    auth.addListener(_authChanged);
+    if (!await resumeStreaming())
+      print('[LocationProvider] Streaming enabled but not started');
   }
 
-  void stopStreaming() {
-    var s = subscriptionToPlugin;
-    subscriptionToPlugin = null;
-    s?.cancel();
-    print('[LocationProvider] Streaming stopped');
-  }
-
-  void resumeStreaming() async {
-    if (subscriptionToPlugin == null) {
-      subscriptionToPlugin = _subscribeToPluginStream(controller);
-      print('[LocationProvider] Streaming resumed');
+  Future<bool> resumeStreaming() async {
+    if (auth.value == true && subscription == null) {
+      if (await requestPermission() && subscription == null) {
+        subscription = _subscribeToPluginStream(controller);
+        print('[LocationProvider] Streaming started');
+        return true;
+      }
     }
+    return false;
   }
 
   void pauseStreaming() {
-    var s = subscriptionToPlugin;
-    subscriptionToPlugin = null;
+    var s = subscription;
+    subscription = null;
     s?.cancel();
     print('[LocationProvider] Streaming paused');
   }
 
+  void stopStreaming() {
+    auth.removeListener(_authChanged);
+    pauseStreaming();
+    print('[LocationProvider] Streaming stopped');
+  }
+
+
+  void _authChanged() async {
+    print('authChanged ${auth.value}');
+    if (controller.hasListener) {
+      if (auth.value == true) {
+        resumeStreaming();
+      } else {
+        pauseStreaming();
+      }
+    }
+  }
 
   static StreamSubscription _subscribeToPluginStream(controller) {
     var bestForNavigation = plugin.LocationAccuracy.bestForNavigation;
@@ -81,35 +95,28 @@ class LocationProvider implements SensorDataProvider<LocationData> {
 
   /// Requests permission to use GPS. Must be called in main Isolate.
   Future<bool> requestPermission() async {
-    var location = new plugin2.Location();
+    var g = plugin.Geolocator();
 
-    var _serviceEnabled = await location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await location.requestService();
-      if (!_serviceEnabled) {
-        return false;
-      }
+    var status = _isEnabled(await g.checkGeolocationPermissionStatus());
+
+    if (!status) {
+      // the plugin will request permission
+      await g.getCurrentPosition(desiredAccuracy: plugin.LocationAccuracy.lowest);
+      status = _isEnabled(await g.checkGeolocationPermissionStatus());
     }
+    return status;
+  }
 
-    var _permissionGranted = await location.hasPermission();
-    if (_permissionGranted == plugin2.PermissionStatus.DENIED) {
-      _permissionGranted = await location.requestPermission();
-      if (_permissionGranted != plugin2.PermissionStatus.GRANTED) {
-        return false;
-      }
-    }
-
-    var geolocator = plugin.Geolocator();
-    var status = await geolocator.checkGeolocationPermissionStatus();
+  bool _isEnabled(plugin.GeolocationStatus status) {
     switch (status) {
-      case plugin.GeolocationStatus.denied:
-      case plugin.GeolocationStatus.disabled:
-        return false;
       case plugin.GeolocationStatus.unknown:
       case plugin.GeolocationStatus.granted:
       case plugin.GeolocationStatus.restricted:
         return true;
+      case plugin.GeolocationStatus.denied:
+      case plugin.GeolocationStatus.disabled:
+      default:
+        return false;
     }
-    return true;
   }
 }

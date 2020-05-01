@@ -71,6 +71,18 @@ abstract class ReadOnlyStore{
   Future<List<Trip>> trips();
 }
 
+/// Used by [TripRecorderBackendImpl] to persist trips.
+abstract class TripRecorderStorage {
+  /// Deletes all data persisted for trip [t].
+  Future<bool> delete(Trip t);
+
+  /// Persists [t] to disk.
+  Future<void> save(Trip t, DateTime end);
+
+  /// Records the sensor [s] data provided in [dataStream] for trip [t].
+  Future<void> recordData(Trip t, Sensor s, Stream<Serializable> dataStream);
+}
+
 /// Store where to read and persist user's [GeoFence]s.
 abstract class GeoFenceStore {
   /// This list of stored geofences.
@@ -86,7 +98,15 @@ abstract class GeoFenceStore {
   Future<bool> setGeoFencesUploaded(bool status);
 }
 
-class DataStore implements ReadOnlyStore, GeoFenceStore {
+class DataStore implements ReadOnlyStore, GeoFenceStore, TripRecorderStorage {
+  /// Static instance to make sure MainIsolate and ForegroundService Isolate
+  /// use the same class for storage.
+  ///
+  /// On Android, sensor recording is done in a foreground service, whose code
+  /// is run in a dart Isolate. Isolates do not share any memory with the
+  /// main Isolate, and therefore initialization must be static.
+  static final DataStore instance = DataStore._make();
+
   /// A [List] of [Completer] for each [Trip] being recorded.
   ///
   /// The [Completer] are completed when a recording operation is finished.
@@ -107,16 +127,21 @@ class DataStore implements ReadOnlyStore, GeoFenceStore {
   /// Whether the current [GeoFence]s have been uploaded to the server.
   bool get geoFencesUploaded => _geoFencesUploaded;
 
-  DataStore() {
+  DataStore._make() {
     _loadGeoFencesUploaded();
   }
 
   @override
   Future<List<GeoFence>> geoFences() async {
-    var file = await _geoFenceFilePath();
+    var filepath = await _geoFenceFilePath();
     try {
-      var lines = File(file).readAsLinesSync();
-      return lines.map((line) => GeoFence.parse(line)).toList();
+      var file = File(filepath);
+      if (file.existsSync()) {
+        var lines = file.readAsLinesSync();
+        return lines.map((line) => GeoFence.parse(line)).toList();
+      } else {
+        return [];
+      }
     } on Exception catch (e) {
       print('[DataStore] error while loading GeoFence file (see below).');
       print(e);

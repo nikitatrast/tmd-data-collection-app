@@ -13,10 +13,10 @@ class GPSAuth extends ValueNotifier<bool> {
   BatteryNotifier _battery;
 
   /// Timer to check the battery level periodically.
-  Timer checkBatteryTimer;
+  Timer _checkBatteryTimer;
 
   /// Battery level above which GPS usage is allowed.
-  int batteryThreshold;
+  int _batteryThreshold;
 
   GPSAuth(this._pref, this._battery) : super(null) {
     _battery.addListener(_update);
@@ -42,10 +42,10 @@ class GPSAuth extends ValueNotifier<bool> {
       case GPSPref.batteryLevel40:
       case GPSPref.batteryLevel60:
       case GPSPref.batteryLevel80:
-        batteryThreshold = _parseBatteryLevel(_pref.value);
+        _batteryThreshold = _parseBatteryLevel(_pref.value);
         _checkBatteryLevel();
-        if (checkBatteryTimer == null) {
-          checkBatteryTimer = Timer.periodic(
+        if (_checkBatteryTimer == null) {
+          _checkBatteryTimer = Timer.periodic(
               Duration(minutes: 5),
               (timer) async => await _checkBatteryLevel(),
           );
@@ -54,16 +54,16 @@ class GPSAuth extends ValueNotifier<bool> {
     }
   }
 
-  /// Updates this value based on [batteryThreshold].
+  /// Updates this value based on [_batteryThreshold].
   Future<void> _checkBatteryLevel() async {
     print('[GpsAuth] checking battery level now.');
     var currentLevel = await BatteryNotifier.batteryLevel;
-    super.value = (currentLevel > batteryThreshold);
+    super.value = (currentLevel > _batteryThreshold);
   }
 
   void _cancelTimer() {
-    checkBatteryTimer?.cancel();
-    checkBatteryTimer = null;
+    _checkBatteryTimer?.cancel();
+    _checkBatteryTimer = null;
   }
 
   int _parseBatteryLevel(GPSPref pref) {

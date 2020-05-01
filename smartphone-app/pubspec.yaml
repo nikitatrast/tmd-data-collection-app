@@ -23,10 +23,8 @@ dependencies:
   intl: any
   slugify: any
   flutter_map: any
-  location: ^2.5.0
   path_provider: any
   shared_preferences: any
-  preferences: ^5.1.0
   connectivity: any
   dio: ">=3.0.1 < 4.0.0"
   filesize: any
@@ -40,7 +38,6 @@ dependencies:
   foreground_service:
     path: ./plugins/foreground_service
   background_locator: ^1.1.2+2
-  flappy_search_bar: 1.7.2
   flutter_markdown: 0.3.5
 
 dev_dependencies:

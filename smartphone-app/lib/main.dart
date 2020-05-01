@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:tmd/boundaries/sensor_data_provider.dart';
+
 import 'backends/network_manager.dart';
 import 'backends/trip_recorder_backend.dart';
 import 'backends/gps_auth.dart';
@@ -12,12 +14,15 @@ import 'backends/explorer_backend.dart';
 import 'backends/trip_recorder_backend_android.dart';
 import 'backends/upload_manager.dart';
 
+import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
+import 'boundaries/gyroscope_provider.dart';
+import 'boundaries/location_provider_background.dart';
 import 'boundaries/preferences_provider.dart';
 import 'boundaries/uploader.dart';
 
-import 'models.dart' show enabledModes;
+import 'models.dart' show Sensor, enabledModes;
 
 import 'pages/geofence_page.dart';
 import 'pages/trip_selector_page.dart';
@@ -41,11 +46,17 @@ void main() async {
   var network = NetworkManager(prefs.cellularNetwork);
   var battery = BatteryNotifier();
   var gpsAuth = GPSAuth(prefs.gpsAuthNotifier, battery);
-  var storage = DataStore();
+  var storage = DataStore.instance;
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
   storage.beforeTripDeletion.add(uploadManager.beforeTripDeletion);
   storage.onGeoFencesChanged = uploadManager.scheduleGeoFenceUpload;
+
+  var makeProvidersForIos = () => <Sensor, SensorDataProvider>{
+    Sensor.gps: LocationProviderBackground(gpsAuth),
+    Sensor.accelerometer: AccelerationProvider(),
+    Sensor.gyroscope: GyroscopeProvider(),
+  };
 
   uploadManager.start();
 
@@ -66,8 +77,8 @@ void main() async {
           // to collect data in background even when GPS is off.
           // Hence the custom implementation for android.
           create: (_) => (Platform.isIOS)
-              ? TripRecorderBackendImpl(gpsAuth, storage)
-              : TripRecorderBackendAndroidImpl(gpsAuth, storage)),
+              ? TripRecorderBackendImpl(gpsAuth, storage, makeProvidersForIos())
+              : TripRecorderBackendAndroidImpl(gpsAuth, storage.onNewTrip)),
       Provider<GeoFenceStore>.value(value: storage),
     ],
     child: MyApp(),
