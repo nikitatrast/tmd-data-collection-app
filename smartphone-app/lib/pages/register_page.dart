@@ -92,7 +92,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   RaisedButton(
                       child: Text("J'accepte"),
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.primary,
                       onPressed: () async {
                         var text = controller.text;
                         widget.uidStore.setLocalUid(text);

@@ -123,7 +123,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
                     children: <Widget>[
                       RaisedButton(
                         child: Text('Enregistrer ce trajet'),
-                        color: Colors.blue,
+                        color: Theme.of(context).colorScheme.primary,
                         onPressed: () => saveDialog(context),
                       ),
                       OutlineButton(

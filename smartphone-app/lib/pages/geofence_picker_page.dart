@@ -137,7 +137,7 @@ class _GeoFencePickerPageState extends State<GeoFencePickerPage> {
               children: <Widget>[
                 RaisedButton(
                   child: Text('Enregistrer'),
-                  color: Colors.blue,
+                  color: Theme.of(context).colorScheme.primary,
                   onPressed: () => _saveAndExit(context)
                 ),
                 RaisedButton(

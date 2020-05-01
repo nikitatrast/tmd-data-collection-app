@@ -129,12 +129,12 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
                 }
               },
               backgroundColor:
-                  viewMode == ViewMode.center ? Colors.blue : Colors.white,
+                  viewMode == ViewMode.center ? Theme.of(context).colorScheme.primary : Colors.white,
               elevation: viewMode == ViewMode.center ? 0 : 6,
               child: Icon(Icons.navigation,
                   color: viewMode == ViewMode.center
                       ? Colors.white
-                      : Colors.blue),
+                      : Theme.of(context).colorScheme.primary),
               heroTag: 'centerView',
               mini: true),
           SizedBox(height: 5, width: 5),
@@ -147,11 +147,11 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
                 }
               },
               backgroundColor:
-                  viewMode == ViewMode.trip ? Colors.blue : Colors.white,
+                  viewMode == ViewMode.trip ? Theme.of(context).colorScheme.primary : Colors.white,
               elevation: viewMode == ViewMode.trip ? 0 : 6,
               child: Icon(Icons.zoom_out_map,
                   color:
-                      viewMode == ViewMode.trip ? Colors.white : Colors.blue),
+                      viewMode == ViewMode.trip ? Colors.white : Theme.of(context).colorScheme.primary),
               heroTag: 'fulltripView',
               mini: true),
         ]),
@@ -208,7 +208,7 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
       point: point,
       builder: (ctx) => Opacity(
           opacity: 1,
-          child: Icon(Icons.trip_origin, size: 15, color: Colors.blue)),
+          child: Icon(Icons.trip_origin, size: 15, color: Theme.of(context).colorScheme.primary)),
     );
   }
 
