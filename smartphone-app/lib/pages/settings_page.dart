@@ -15,13 +15,21 @@ class SettingsPage extends StatelessWidget {
   /// Opens a page to display local trips.
   final void Function() openDataExplorer;
 
+  /// Opens a page to display info about data sent to the server.
+  final void Function() openUploadedTrips;
+
   /// Opens a page to display saved [GeoFences].
   final void Function() openGeoFences;
 
   /// Opens the page to display consent form.
   final void Function() openConsent;
 
-  SettingsPage(this.openDataExplorer, this.openGeoFences, this.openConsent);
+  SettingsPage(
+      this.openDataExplorer,
+      this.openUploadedTrips,
+      this.openGeoFences,
+      this.openConsent
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +50,7 @@ class SettingsPage extends StatelessWidget {
             _cellularNetworkTile,
             _consentTile,
             _dataExplorerTile,
+            _uploadedTripsTile,
             _geoFenceTile,
           ]).toList()),
       Divider(),
@@ -67,6 +76,14 @@ class SettingsPage extends StatelessWidget {
     leading: Icon(Icons.insert_drive_file, size: 40),
     trailing: Icon(Icons.arrow_forward_ios),
     onTap: openDataExplorer
+  );
+
+  /// Widget to open the data explorer page.
+  Widget get _uploadedTripsTile => ListTile(
+      title: Text("Données envoyées"),
+      leading: Icon(Icons.cloud_circle, size: 40),
+      trailing: Icon(Icons.arrow_forward_ios),
+      onTap: openUploadedTrips
   );
 
   /// Widget to open the geoFence page.

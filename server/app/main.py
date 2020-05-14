@@ -58,6 +58,45 @@ async def upload(
     }
 
 
+@app.post("/trips")
+async def trips(
+    *,
+    uid: str = Form(...),
+    ):
+    
+    uids = load_uids()
+    if uid not in uids.keys():
+        logging.warning(f'Unknown UID: `{uid}`')
+        raise HTTPException(status_code=401, detail="Unknown UID")
+    
+    dir_path = Path(data_dir_path(uid))
+
+    files = list(dir_path.glob('*.csv'))
+    data = {}
+    for file in files:
+        try:
+            print(file.with_suffix('').name)
+            parts = file.with_suffix('').name.split('_')
+            mode = parts[0]
+            start = parts[1]
+            sensor = parts[2]
+            end = parts[3]
+            data.setdefault((mode, start, end), set())
+            data[(mode, start, end)].add(sensor)
+        except Exception as e:
+            logging.exception('ignored')
+            
+    response = []
+    for ((mode, start, end), sensors) in data.items():
+        response.append({
+            'mode': mode,
+            'start': start,
+            'end': end,
+            'nbSensors': len(sensors)
+        })
+    return response
+
+
 class GeoFence(BaseModel):
     latitude: float
     longitude: float
@@ -128,17 +167,21 @@ def find_new_candidate(token, uids):
     return token
 
 
+def data_dir_path(uid):
+    return f"/app/data/{uid}"
+
+
 def filename(mode, start, end, tag):
     return f"{mode}_{start}_{tag}_{end}.csv"
 
 
 def filepath(uid, mode, start, end, tag):
     fname = filename(mode, start, end, tag)
-    return f"/app/data/{uid}/{fname}"
+    return f"{data_dir_path(uid)}/{fname}"
 
 
 def fencesPath(uid):
-    return f"/app/data/{uid}/geofences.json"
+    return f"{data_dir_path(uid)}/geofences.json"
 
 
 def writeToDisk(data: UploadFile, dest: str):

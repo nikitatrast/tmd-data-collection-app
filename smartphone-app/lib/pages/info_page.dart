@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:tmd/widgets/trip_tile.dart';
 import '../models.dart' show Sensor;
 import '../widgets/modes_view.dart';
 import '../widgets/sensor_view.dart';
@@ -40,7 +41,7 @@ class InfoPage extends StatelessWidget {
                   title: Text('Fin: ' + _formatDate(trip.end)),
                   leading: Icon(Icons.access_time, size: 40)),
               ListTile(
-                  title: Text('Durée: ' + trip.formattedDuration),
+                  title: Text('Durée: ' + SavedTripTile.formatDuration(trip.duration)),
                   leading: Icon(Icons.timelapse, size: 40)),
               for (Sensor sensor in Sensor.values)
                 ListTile(

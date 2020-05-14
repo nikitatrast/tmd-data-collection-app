@@ -69,6 +69,11 @@ class Trip implements Serializable {
   }
 }
 
+class SavedTrip extends Trip {
+  DateTime end;
+  int nbSensors;
+}
+
 abstract class Serializable {
   String serialize();
 }

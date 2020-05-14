@@ -39,6 +39,7 @@ dependencies:
     path: ./plugins/foreground_service
   background_locator: ^1.1.2+2
   flutter_markdown: 0.3.5
+  rxdart:
 
 dev_dependencies:
   flutter_test:

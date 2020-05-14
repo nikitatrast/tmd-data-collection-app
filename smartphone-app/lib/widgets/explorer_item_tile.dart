@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:filesize/filesize.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../pages/explorer_page.dart' show ExplorerItem;
-import '../widgets/modes_view.dart' show ModeIcon;
 import '../widgets/upload_status_view.dart';
-import '../utils.dart' show StringExtension;
+import '../widgets/trip_tile.dart';
 
 /// [ListTile] to interact with an [ExplorerItem] instance.
 class ExplorerItemTile extends StatelessWidget {
@@ -55,9 +53,9 @@ class ExplorerItemTile extends StatelessWidget {
     this.onUpload,
     this.onCancelUpload,
   })
-  : title = _makeTitle(item)
+  : title = TripTile.title(item)
   , subtitle = _makeSubtitle(item)
-  , leading = Icon(item.mode.iconData, size: 40)
+  , leading = TripTile.leadingIcon(item)
   ;
 
   @override
@@ -109,43 +107,22 @@ class ExplorerItemTile extends StatelessWidget {
   }
 }
 
-Widget _makeTitle(item) {
-  return Text(_formatPeriod(item.start, item.end).capitalize());
-}
-
 Widget _makeSubtitle(ExplorerItem item) {
   return RichText(
     text: TextSpan(
       children: [
-        WidgetSpan(
-          child: Icon(Icons.access_time, size: 14),
-        ),
-        TextSpan(
-            text: ' ' + item.formattedDuration + '    ',
-            style: TextStyle(color: Colors.black)),
+        SavedTripTile.durationText(item.duration),
+        TextSpan(text: '    '),
+        SavedTripTile.sensorsCount(item.nbSensors),
+        TextSpan(text: '    '),
         WidgetSpan(
           child: Icon(Icons.computer, size: 14),
+          alignment: PlaceholderAlignment.middle,
         ),
         TextSpan(
-            text: ' ' + filesize(item.sizeOnDisk) + '    ',
-            style: TextStyle(color: Colors.black)),
-        WidgetSpan(
-          child: Icon(Icons.location_on, size: 14),
-        ),
-        TextSpan(
-            text: item.nbSensors.toString(),
+            text: ' ' + filesize(item.sizeOnDisk),
             style: TextStyle(color: Colors.black)),
       ],
     ),
   );
-}
-
-String _formatPeriod(start, stop) {
-  var day = DateFormat('EEE d MMMM', 'fr_FR');
-  var time = DateFormat.jm('fr_FR');
-  return day.format(start) +
-      ' entre ' +
-      time.format(start) +
-      ' et ' +
-      ((start == stop) ? '??' : time.format(stop));
 }

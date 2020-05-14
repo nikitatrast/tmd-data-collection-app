@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:tmd/pages/consent_page.dart';
 
-import 'package:tmd/boundaries/sensor_data_provider.dart';
-
+import 'backends/uploaded_trips_backend.dart';
 import 'backends/network_manager.dart';
 import 'backends/trip_recorder_backend.dart';
 import 'backends/gps_auth.dart';
@@ -21,6 +19,7 @@ import 'boundaries/data_store.dart';
 import 'boundaries/gyroscope_provider.dart';
 import 'boundaries/location_provider_background.dart';
 import 'boundaries/preferences_provider.dart';
+import 'boundaries/sensor_data_provider.dart';
 import 'boundaries/uploader.dart';
 
 import 'models.dart' show Sensor, enabledModes;
@@ -32,6 +31,8 @@ import 'pages/explorer_page.dart';
 import 'pages/trip_recorder_page.dart';
 import 'pages/info_page.dart';
 import 'pages/register_page.dart';
+import 'pages/consent_page.dart';
+import 'pages/uploaded_trips_page.dart';
 
 import 'widgets/modes_view.dart' show ModeRoute;
 
@@ -72,6 +73,9 @@ void main() async {
       Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
+      Provider<UploadedTripsBackend>.value(
+          value: UploadedTripsBackendImpl(uploader),
+      ),
       Provider<TripRecorderBackend>(
           // On iOS, we need to have the GPS running to be able to collect
           // data in background. But on android, we can use a foreground service
@@ -113,6 +117,7 @@ class MyApp extends StatelessWidget {
             mode.route: (context) => _tripRecorderPage(context, mode),
           '/settings': _settingsPage,
           '/data-explorer': _dataExplorerPage,
+          '/uploaded-trips': _uploadedTripsPage,
           '/info': _infoPage,
           '/geofences': _geoFencesPage,
           '/consent': (context) => ConsentPage(),
@@ -164,6 +169,7 @@ class MyApp extends StatelessWidget {
 
   Widget _settingsPage(context) => SettingsPage(
         () => Navigator.of(context).pushNamed('/data-explorer'),
+        () => Navigator.of(context).pushNamed('/uploaded-trips'),
         () => Navigator.of(context).pushNamed('/geofences'),
         () => Navigator.of(context).pushNamed('/consent'),
       );
@@ -178,4 +184,9 @@ class MyApp extends StatelessWidget {
 
   Widget _geoFencesPage(c) => Consumer<GeoFenceStore>(
       builder: (context, store, _) => GeoFencePage(store));
+
+  Widget _uploadedTripsPage(context) => Consumer<UploadedTripsBackend>(
+      builder: (context, backend, _) => UploadedTripsPage(backend)
+  );
+
 }

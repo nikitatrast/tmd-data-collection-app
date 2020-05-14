@@ -9,13 +9,23 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:device_info/device_info.dart';
 
-import '../models.dart' show GeoFence, ModeValue, Trip;
+import '../models.dart' show GeoFence, ModeValue, SavedTrip, Trip;
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../boundaries/preferences_provider.dart' show UidStore;
 
 /// Status of the Uploader.
 enum UploaderStatus {
   offline, ready, uploading
+}
+
+enum GetRequestStatus {
+  loading, error, loaded
+}
+
+class GetResponse<T> {
+  GetRequestStatus status;
+  T data;
+  String errorMessage;
 }
 
 typedef UploadDataBuilder = Future<UploadData> Function();
@@ -185,6 +195,56 @@ class Uploader {
       });
   }
 
+  /// Loads the list of uploaded trips
+  Stream<GetResponse<List<SavedTrip>>> uploadedTripsInfo() async* {
+    var r = GetResponse<List<SavedTrip>>();
+    yield r..status = GetRequestStatus.loading;
+
+    var dio = await _dio;
+    var uid = await uidStore.getUid();
+
+    if (uid == null) {
+      r.data = [];
+      yield r..status = GetRequestStatus.loaded;
+    } else {
+      var data = {"uid": uid};
+      var response;
+
+      try {
+        response =
+        await dio.post(await _tripsUrl, data: FormData.fromMap(data));
+        print('[Uploader] response: ${response.data.runtimeType}');
+        r.data = [];
+        for (var trip in response.data) {
+          print(trip.runtimeType);
+          trip = trip as Map;
+          r.data.add(SavedTrip()
+            ..mode = ModeValue.fromValue(trip['mode'])
+            ..start = DateTime.fromMillisecondsSinceEpoch(
+                int.parse(trip['start']))
+            ..end = DateTime.fromMillisecondsSinceEpoch(int.parse(trip['end']))
+            ..nbSensors = trip['nbSensors']);
+        }
+        yield r..status = GetRequestStatus.loaded;
+      } on DioError catch (e) {
+        print('[Uploader] Error while fetching trips()');
+        print(e);
+        //
+        r.errorMessage = e.message;
+        if (e.error is SocketException) {
+          if (e.error.osError.errorCode == 101) {
+            r.errorMessage = "Erreur 101: impossible de se connecter à internet";
+          } else if (e.error.osError.errorCode == 111) {
+            r.errorMessage = "Erreur 111: serveur indisponible pour le moment.";
+          }
+        } else if (e.response != null && e.response.statusCode == 404) {
+          r.errorMessage = "Erreur 404: serveur indisponible pour le moment.";
+        }
+        yield r..status = GetRequestStatus.error;
+      }
+    }
+  }
+
   /// Uploads [geoFences].
   Future<bool> uploadGeoFences(List<GeoFence> geoFences) async {
     status.value = UploaderStatus.uploading;
@@ -332,6 +392,7 @@ class Uploader {
     return 'https://${info["domain"]}:${info["port"]}';
   }();
 
+  Future<String> get _tripsUrl async => '${await _host}/trips';
   Future<String> get _geofencesUrl async => '${await _host}/geofences';
   Future<String> get _uploadUrl async => '${await _host}/upload';
   Future<String> get _helloUrl async => '${await _host}/hello';
