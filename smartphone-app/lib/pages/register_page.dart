@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../boundaries/preferences_provider.dart' show UidStore;
 
+
 /// Page to display the consent form and ask for device's ID.
 class RegisterPage extends StatefulWidget {
   final VoidCallback next;
@@ -109,15 +110,21 @@ class _RegisterPageState extends State<RegisterPage> {
                               decoration: InputDecoration(
                                   labelText: 'Nom Prénom'))),
                       ButtonBar(children: [
-                        RaisedButton(
-                            child: Text("J'accepte"),
-                            color: Colors.blue,
-                            onPressed: () async {
-                              var text = controller.text;
-                              widget.uidStore.setLocalUid(text);
-                              print('[RegisterPage] Local uid: $text');
-                              widget.next();
-                            }),
+                        ValueListenableBuilder(
+                          valueListenable: controller,
+                          builder: (context, value, child) {
+                            return RaisedButton(
+                                child: Text("J'accepte"),
+                                color: Colors.blue,
+                                onPressed: (value.text.isEmpty) ? null :
+                                    () async {
+                                      var text = controller.text;
+                                      widget.uidStore.setLocalUid(text);
+                                      print('[RegisterPage] Local uid: $text');
+                                      widget.next();
+                                    });
+                          }
+                        ),
                       ])
                     ]),
                   );
