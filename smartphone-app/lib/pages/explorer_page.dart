@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../backends/upload_manager.dart' show UploadStatus;
-import '../models.dart' show Trip, Sensor;
+import '../models.dart' show SavedTrip, Sensor, Trip;
 import '../widgets/explorer_item_tile.dart';
 import '../widgets/modes_view.dart' show ModeIcon;
 
@@ -16,22 +16,10 @@ abstract class ExplorerBackend {
 }
 
 /// An Item that can be displayed in [ExplorerPage].
-class ExplorerItem extends Trip {
-  DateTime end;
+class ExplorerItem extends SavedTrip {
   int sizeOnDisk;
-  int nbSensors;
   ValueNotifier<UploadStatus> status;
-
-  String get formattedDuration {
-    var d = this.end.difference(this.start);
-    if (d.inHours > 0) {
-      return '${d.inHours}h ${d.inMinutes.remainder(60)}';
-    }
-    if (d.inMinutes > 0) {
-      return '${d.inMinutes}mn ${d.inSeconds.remainder(60)}s';
-    }
-    return '${d.inSeconds}s';
-  }
+  Duration get duration => end.difference(start);
 }
 
 /// Page to display a list of [ExplorerItem] provided by an [ExplorerBackend].

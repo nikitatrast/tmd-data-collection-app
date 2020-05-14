@@ -42,6 +42,7 @@ dependencies:
   background_locator: ^1.1.2+2
   flappy_search_bar: 1.7.2
   flutter_markdown: 0.3.5
+  rxdart:
 
 dev_dependencies:
   flutter_test:

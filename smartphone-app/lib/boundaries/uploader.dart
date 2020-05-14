@@ -9,13 +9,22 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:device_info/device_info.dart';
 
-import '../models.dart' show GeoFence, ModeValue, Trip;
+import '../models.dart' show GeoFence, ModeValue, SavedTrip, Trip;
 import '../backends/upload_manager.dart' show UploadStatus;
 import '../boundaries/preferences_provider.dart' show UidStore;
 
 /// Status of the Uploader.
 enum UploaderStatus {
   offline, ready, uploading
+}
+
+enum GetRequestStatus {
+  loading, error, loaded
+}
+
+class GetResponse<T> {
+  GetRequestStatus status;
+  T data;
 }
 
 typedef UploadDataBuilder = Future<UploadData> Function();
@@ -185,6 +194,61 @@ class Uploader {
       });
   }
 
+  /// Loads the list of uploaded trips
+  Stream<GetResponse<List<SavedTrip>>> uploadedTripsInfo() async* {
+    status.value = UploaderStatus.uploading;
+
+    var r = GetResponse<List<SavedTrip>>();
+    yield r..status = GetRequestStatus.loading;
+
+    var dio = await _dio;
+    var uid = await uidStore.getUid();
+
+    var data = {"uid": uid};
+    var response;
+
+    try {
+      response = await dio.post(await _tripsUrl, data: FormData.fromMap(data));
+      status.value = UploaderStatus.ready;
+    } on Exception catch (e) {
+      if(e is DioError && e.response != null) {
+        print('[Uploader] Error response while fetching trips:');
+        print(e.response.data);
+        print(e.response.headers);
+        print(e.response.request);
+        yield r..status = GetRequestStatus.error;
+        // no need to set the uploader to offline, maybe only this endpoint is bad.
+      } else {
+        print(e);
+        status.value = UploaderStatus.offline;
+        yield r..status = GetRequestStatus.error;
+      }
+    }
+
+    if (response != null)
+      try {
+        print('[Uploader] response: ${response.data.runtimeType}');
+        r.data = [];
+        for (var trip in response.data) {
+          print(trip.runtimeType);
+          trip = trip as Map;
+          r.data.add(SavedTrip()
+            ..mode = ModeValue.fromValue(trip['mode'])
+            ..start = DateTime.fromMillisecondsSinceEpoch(int.parse(trip['start']))
+            ..end = DateTime.fromMillisecondsSinceEpoch(int.parse(trip['end']))
+           ..nbSensors = trip['nbSensors']);
+        }
+        yield r..status = GetRequestStatus.loaded;
+
+      } on Exception catch (e) {
+        print('[Uploader] Error while parsing trips() json response');
+        print(e);
+        //
+        yield r..status = GetRequestStatus.error;
+        throw e;
+      }
+  }
+
   /// Uploads [geoFences].
   Future<bool> uploadGeoFences(List<GeoFence> geoFences) async {
     status.value = UploaderStatus.uploading;
@@ -332,6 +396,7 @@ class Uploader {
     return 'https://${info["domain"]}:${info["port"]}';
   }();
 
+  Future<String> get _tripsUrl async => '${await _host}/trips';
   Future<String> get _geofencesUrl async => '${await _host}/geofences';
   Future<String> get _uploadUrl async => '${await _host}/upload';
   Future<String> get _helloUrl async => '${await _host}/hello';
