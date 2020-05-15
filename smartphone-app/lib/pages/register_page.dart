@@ -19,6 +19,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   TextEditingController controller;
+  FocusNode textFocusNode;
   double textScale = 1.0;
   double maxScale = 2.0;
   double minScale = 0.9;
@@ -107,24 +108,24 @@ class _RegisterPageState extends State<RegisterPage> {
                           padding: EdgeInsets.only(left: 10, right: 10),
                           child: TextField(
                               controller: controller,
+                              focusNode: textFocusNode,
                               decoration: InputDecoration(
                                   labelText: 'Nom Prénom'))),
                       ButtonBar(children: [
-                        ValueListenableBuilder(
-                          valueListenable: controller,
-                          builder: (context, value, child) {
-                            return RaisedButton(
-                                child: Text("J'accepte"),
-                                color: Colors.blue,
-                                onPressed: (value.text.isEmpty) ? null :
-                                    () async {
-                                      var text = controller.text;
-                                      widget.uidStore.setLocalUid(text);
-                                      print('[RegisterPage] Local uid: $text');
-                                      widget.next();
-                                    });
+                        RaisedButton(
+                          child: Text("J'accepte"),
+                          color: Colors.blue,
+                          onPressed: () {
+                                var text = controller.text;
+                                if (text.isEmpty) {
+                                  textFocusNode.requestFocus();
+                                } else {
+                                  widget.uidStore.setLocalUid(text);
+                                  print('[RegisterPage] Local uid: $text');
+                                  widget.next();
+                                }
                           }
-                        ),
+                        )
                       ])
                     ]),
                   );
@@ -135,11 +136,13 @@ class _RegisterPageState extends State<RegisterPage> {
   void initState() {
     super.initState();
     controller = TextEditingController();
+    textFocusNode = FocusNode();
   }
 
   void dispose() {
     super.dispose();
     controller.dispose();
+    textFocusNode.dispose();
   }
 
   Widget welcomeText(context) {
