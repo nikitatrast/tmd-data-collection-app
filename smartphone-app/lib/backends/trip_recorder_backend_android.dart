@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:foreground_service/foreground_service.dart';
 
-import '../backends/gps_pref_result.dart';
+import '../backends/gps_status.dart';
 import '../backends/trip_recorder_backend.dart';
 import '../boundaries/acceleration_provider.dart';
 import '../boundaries/data_store.dart';
@@ -12,6 +12,7 @@ import '../boundaries/location_provider.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart';
 import '../pages/trip_recorder_page.dart';
+import '../backends/message_handler.dart';
 
 /// An implementation of [TripRecorderBackend] that uses a foreground service
 /// on Android to allow background data collection.
@@ -24,7 +25,7 @@ import '../pages/trip_recorder_page.dart';
 ///
 class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   /// Whether usage of the GPS is allowed.
-  GPSPrefResult _gpsAuth;
+  GpsStatusProvider _gpsAuth;
 
   /// Completes when save() method completes in the foreground service.
   Completer<bool> saveResponse;
@@ -41,18 +42,17 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   /// Called when a new trip is saved.
   final void Function(Trip) onNewTrip;
 
-  TripRecorderBackendAndroidImpl(this._gpsAuth, this.onNewTrip) {
-    _gpsAuth.addListener(_gpsAuthChanged);
-  }
+  TripRecorderBackendAndroidImpl(this._gpsAuth, this.onNewTrip);
 
   @override
   void cancel() async {
-    _sendToIsolate({'type': 'TripRecorderBackend.cancel'});
+    _sendToIsolate({'method': 'TripRecorderBackend.cancel'});
   }
 
   @override
   void dispose() async {
-    _sendToIsolate({'type': 'TripRecorderBackend.dispose'});
+    _gpsAuth.status.removeListener(_gpsAuth.sendValueToPort);
+    _sendToIsolate({'method': 'TripRecorderBackend.dispose'});
   }
 
   @override
@@ -63,7 +63,7 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   @override
   Future<bool> save() async {
     saveResponse = Completer();
-    _sendToIsolate({'type': 'TripRecorderBackend.save'});
+    _sendToIsolate({'method': 'TripRecorderBackend.save'});
     return saveResponse.future;
   }
 
@@ -75,45 +75,34 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
     await Isolate.start();
     await ForegroundService.setupIsolateCommunication(_onIsolateMessage);
 
-    _gpsAuthChanged();
     _sendToIsolate({
-      'type': 'TripRecorderBackend.start',
+      'method': 'TripRecorderBackend.start',
       'mode': tripMode.value,
+    }).then((_) {
+      _gpsAuth.status.addListener(_gpsAuth.sendValueToPort);
+      _gpsAuth.sendValueToPort(); // send initial value
     });
 
     return startResponse.future;
   }
 
-  void _gpsAuthChanged() async {
-    _sendToIsolate({
-      'type': 'GPSPrefResult.value',
-      'value': _gpsAuth.value,
-    });
-  }
-
-  void _onIsolateMessage(dynamic data) {
+  void _onIsolateMessage(dynamic data) async {
     print('[MainIsolate] Message received: $data');
     var message = data as Map;
 
-    if (message['type'] == 'LocationData') {
+    if (message['method'] == 'LocationData') {
       outputController.add(LocationData.parse(message['data']));
-    } else if (message['type'] == 'ForegroundServiceReady') {
+    } else if (message['method'] == 'ForegroundServiceReady') {
       _isCommunicationSetup.complete();
-    } else if (message['type'] == 'TripRecorderBackend.start') {
+    } else if (message['method'] == 'TripRecorderBackend.start') {
       startResponse.complete(message['value']);
-    } else if (message['type'] == 'TripRecorderBackend.save') {
+    } else if (message['method'] == 'TripRecorderBackend.save') {
       saveResponse.complete(message['value']);
-    } else if (message['type'] == 'TripRecorderStorage.onNewTrip') {
+    } else if (message['method'] == 'TripRecorderStorage.onNewTrip') {
       var trip = Trip.parse(message['trip']);
       onNewTrip(trip);
-    } else if (message['type'] == 'LocationProvider.requestPermission') {
-      LocationProvider(_gpsAuth)
-          .requestPermission()
-          .then((value) => _sendToIsolate({
-                'type': 'LocationProvider.requestPermission',
-                'value': value,
-                'key': message['key'],
-              }));
+    } else if (await _gpsAuth.handleMessage(message)) {
+      print('[MainIsolate] message handled by _gpsAuth');
     }
   }
 
@@ -151,17 +140,17 @@ class Isolate {
     var now = DateTime.now();
     ForegroundService.notification.setText('Trip recording started ($now)');
 
-    var gpsPrefRes = IsolateGPSPrefResult(false);
+    var gpsStatusProvider = IsolateGpsStatusProvider();
 
     var storage = DataStore.instance;
     storage.onNewTrip = (Trip t) {
       ForegroundService.sendToPort({
-        'type': 'TripRecorderStorage.onNewTrip',
+        'method': 'TripRecorderStorage.onNewTrip',
         'trip': t.serialize(),
       });
     };
 
-    var locationProvider = IsolateLocationProvider(gpsPrefRes);
+    var locationProvider = LocationProvider(gpsStatusProvider);
     var providers = <Sensor, SensorDataProvider>{
       Sensor.gps: locationProvider,
       Sensor.accelerometer: AccelerationProvider(),
@@ -170,22 +159,22 @@ class Isolate {
 
     TripRecorderBackendImpl.logPrefix = "Isolate:TripRecorderBackend";
     var stopped = Completer();
-    var backend = IsolateTripRecorderBackend(gpsPrefRes, storage, providers);
+    var backend = IsolateTripRecorderBackend(gpsStatusProvider, storage, providers);
     backend.onDispose = () => stopped.complete();
 
     // Callback to process message, where most of the stuff happens.
     await ForegroundService.setupIsolateCommunication(
         (data) => Isolate.onMessageReceived(
               data,
-              [backend, locationProvider, gpsPrefRes]
+              [backend, gpsStatusProvider]
             ));
 
     // Tell the main isolate that we are ready to process messages.
-    ForegroundService.sendToPort({'type': 'ForegroundServiceReady'});
+    ForegroundService.sendToPort({'method': 'ForegroundServiceReady'});
 
     var subscription = backend.locationStream().listen((locationData) {
       ForegroundService.sendToPort({
-        'type': 'LocationData',
+        'method': 'LocationData',
         'data': locationData.serialize(),
       });
     });
@@ -220,14 +209,6 @@ class Isolate {
   }
 }
 
-abstract class MessageHandler {
-  /// Translates a message from main Isolate to a method call on this instance.
-  ///
-  /// Returns `true` if have been translated successfully,
-  /// returns `false` if the message should be propagated to another handler.
-  Future<bool> handleMessage(Map message);
-}
-
 /// Proxy for [TripRecorderBackendImpl] which translates messages received
 /// from the main isolate into method calls on this instance.
 class IsolateTripRecorderBackend extends TripRecorderBackendImpl
@@ -236,9 +217,9 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
   /// Callback to notify that [dispose()] was called on this backend.
   Function onDispose = () {};
 
-  IsolateTripRecorderBackend(GPSPrefResult gpsPrefRes, TripRecorderStorage storage,
+  IsolateTripRecorderBackend(GpsStatusProvider provider, TripRecorderStorage storage,
       Map<Sensor, SensorDataProvider> providers)
-      : super(gpsPrefRes, storage, providers);
+      : super(provider, storage, providers);
 
   @override
   void dispose() {
@@ -248,72 +229,26 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
 
   @override
   Future<bool> handleMessage(Map message) async {
-    if (message['type'] == 'TripRecorderBackend.cancel') {
+    if (message['method'] == 'TripRecorderBackend.cancel') {
       cancel();
-    } else if (message['type'] == 'TripRecorderBackend.dispose') {
+    } else if (message['method'] == 'TripRecorderBackend.dispose') {
       dispose();
       /// [stopped] will terminate the foreground service.
       //stopped.complete(true);
-    } else if (message['type'] == 'TripRecorderBackend.save') {
+    } else if (message['method'] == 'TripRecorderBackend.save') {
       save().then((value) => ForegroundService.sendToPort({
-        'type': 'TripRecorderBackend.save',
+        'method': 'TripRecorderBackend.save',
         'value': value,
       }));
-    } else if (message['type'] == 'TripRecorderBackend.start') {
+    } else if (message['method'] == 'TripRecorderBackend.start') {
       Mode mode = ModeValue.fromValue(message['mode']);
       start(mode).then((value) => ForegroundService.sendToPort({
-        'type': 'TripRecorderBackend.start',
+        'method': 'TripRecorderBackend.start',
         'value': value,
       }));
     } else {
       return false;
     }
     return true;
-  }
-}
-
-/// A proxy for [GPSPrefResult] that can be used to forward the GPSPrefResult value
-/// from the main isolate to the foreground service's isolate.
-class IsolateGPSPrefResult extends ValueNotifier<bool>
-    with MessageHandler
-    implements GPSPrefResult {
-  IsolateGPSPrefResult(bool value) : super(value);
-
-  @override
-  Future<bool> handleMessage(Map message) async {
-    if (message['type'] == 'GPSPrefResult.value') {
-      super.value = message['value'];
-      return true;
-    }
-    return false;
-  }
-}
-
-/// [requestPermission] must be called in the main isolate,
-/// this implementation of [LocationProvider] forwards the method call
-/// to the main isolate via a message.
-class IsolateLocationProvider extends LocationProvider with MessageHandler {
-  IsolateLocationProvider(GPSPrefResult gpsPrefRes) : super(gpsPrefRes);
-
-  Map<int, Completer<bool>> _permissions = Map();
-
-  @override
-  Future<bool> requestPermission() async {
-    var now = DateTime.now().millisecondsSinceEpoch;
-    _permissions[now] = Completer<bool>();
-    ForegroundService.sendToPort({
-      'type': 'LocationProvider.requestPermission',
-      'key': now,
-    });
-    return _permissions[now].future;
-  }
-
-  @override
-  Future<bool> handleMessage(Map message) async {
-    if (message['type'] == 'LocationProvider.requestPermission') {
-      _permissions[message['key']].complete(message['value']);
-      return true;
-    }
-    return false;
   }
 }

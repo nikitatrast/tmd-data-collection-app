@@ -1,46 +1,45 @@
 import 'dart:async';
 
-import 'package:geolocator/geolocator.dart';
-import 'package:location/location.dart';
-import 'package:location_permissions/location_permissions.dart';
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart' as G;
+import 'package:location/location.dart' as L;
+import 'package:location_permissions/location_permissions.dart' as P;
 
 enum LocationSystemStatus {
   disabled, denied, allowed
 }
 
 class LocationPermission {
-  var loc = Location();
-  var geo = Geolocator();
-  var per = LocationPermissions();
-
-  var c = StreamController<LocationSystemStatus>.broadcast();
-
-  Stream<LocationSystemStatus> get status => c.stream;
+  var loc = L.Location();
+  var geo = G.Geolocator();
+  var per = P.LocationPermissions();
+  var status = ValueNotifier<LocationSystemStatus>(LocationSystemStatus.denied);
 
   Future<LocationSystemStatus> updateStatus() async {
-    GeolocationStatus s = await geo.checkGeolocationPermissionStatus();
-    LocationSystemStatus res;
-    switch(s) {
-      case GeolocationStatus.restricted:
-      case GeolocationStatus.granted:
-        res = LocationSystemStatus.allowed;
-        break;
-      case GeolocationStatus.denied:
-        res = LocationSystemStatus.denied;
-        break;
-      case GeolocationStatus.disabled:
-        res = LocationSystemStatus.disabled;
-        break;
-      default:
-        print('[LocationPermission] unknown response, disabling GPS');
-        res = LocationSystemStatus.disabled;
+    var res;
+    P.ServiceStatus s = await per.checkServiceStatus();
+    if (s != P.ServiceStatus.enabled) {
+      res = LocationSystemStatus.disabled;
+    } else {
+      P.PermissionStatus s = await per.checkPermissionStatus();
+      switch (s) {
+        case P.PermissionStatus.denied:
+          res = LocationSystemStatus.denied;
+          break;
+        case P.PermissionStatus.granted:
+          res = LocationSystemStatus.allowed;
+          break;
+      }
     }
-    c.add(res);
+
+    status.value = res;
     return res;
   }
 
   Future<LocationSystemStatus> request() async {
-    await loc.requestPermission();
+    var e = await loc.requestService();
+    var p = await loc.requestPermission();
+    print('[LocationPermission] request() --> $e / $p');
     return updateStatus();
   }
 

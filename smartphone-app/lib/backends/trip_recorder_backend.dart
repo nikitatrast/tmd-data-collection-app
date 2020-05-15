@@ -1,25 +1,12 @@
 import 'dart:async';
 import 'package:async/async.dart';
-
-import '../backends/gps_pref_result.dart';
-
-import '../boundaries/acceleration_provider.dart';
-import '../boundaries/location_provider_background.dart';
+import '../backends/gps_status.dart';
 import '../boundaries/data_store.dart';
 import '../boundaries/sensor_data_provider.dart';
-import '../boundaries/gyroscope_provider.dart';
-
 import '../models.dart' show LocationData, Mode, Sensor, Serializable, Trip;
-
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 
-/// Implementation of [TripRecorderBackend] using a
-/// [LocationProviderBackground] by default.
-///
-/// The [LocationProviderBackground] keeps this backend
-/// alive when the app is in background. Hence, the GPS must not be disabled
-/// to ensure proper data collection.
-///
+
 class TripRecorderBackendImpl implements TripRecorderBackend {
   /// Line prefix used for logging
   static String logPrefix = 'TripRecorderBackend';
@@ -30,7 +17,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   TripRecorderStorage _storage;
 
   /// Whether we can use the GPS.
-  GPSPrefResult gpsAuth;
+  GpsStatusProvider gpsStatusProvider;
 
   /// The newly recorded trip.
   Trip _trip;
@@ -38,7 +25,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   /// Completes when recordings must stop.
   Completer<DateTime> _tripEnd;
 
-  TripRecorderBackendImpl(this.gpsAuth, this._storage, this._providers);
+  TripRecorderBackendImpl(this.gpsStatusProvider, this._storage, this._providers);
 
   /// Initializes member variables and starts sensor recordings.
   @override
@@ -47,6 +34,8 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     _trip.mode = tripMode;
     _trip.start = DateTime.now();
     _tripEnd = Completer();
+
+    gpsStatusProvider.forceUpdate();
 
     for (var sensor in _providers.keys) {
       print('[$logPrefix] startRecording for $sensor');

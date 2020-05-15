@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:tmd/backends/gps_status.dart';
 
 import '../models.dart';
 import '../backends/gps_pref_result.dart';
@@ -67,8 +68,8 @@ class TripRecorderPageState extends State<TripRecorderPage> {
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<GPSPrefResult>(builder: (context, auth, _) {
-      if (auth.value != true) {
+    return Consumer<ValueNotifier<GpsStatus>>(builder: (context, status, _) {
+      if (status.value != GpsStatus.available) {
         return noGPSPane();
       } else {
         return Column(children: [

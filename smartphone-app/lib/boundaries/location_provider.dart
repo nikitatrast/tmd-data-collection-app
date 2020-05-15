@@ -3,18 +3,15 @@ import 'dart:async';
 /// Use geolocator plugin because it's the only one that works in
 /// a background Isolate... (as of 05.2020)
 import 'package:geolocator/geolocator.dart' as plugin;
+import 'package:tmd/backends/gps_status.dart';
 
-/// Use location plugin because we can request to enable the GPS with it.
-import 'package:location/location.dart' as Location;
-
-import '../backends/gps_pref_result.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart' show LocationData;
 
 /// Provides data ([LocationData]) from the GPS sensor.
 class LocationProvider implements SensorDataProvider<LocationData> {
   /// Whether GPS use is allowed.
-  GPSPrefResult auth;
+  GpsStatusProvider statusProvider;
 
   /// Subscription to the GPS sensor's stream.
   StreamSubscription subscription;
@@ -22,7 +19,7 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   /// Controller for the output stream of LocationData.
   StreamController<LocationData> controller;
 
-  LocationProvider(this.auth) {
+  LocationProvider(this.statusProvider) {
     controller = StreamController<LocationData>.broadcast(
       onListen: startStreaming,
       onCancel: stopStreaming,
@@ -35,18 +32,16 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void startStreaming() async {
-    auth.addListener(_authChanged);
+    statusProvider.status.addListener(_authChanged);
     if (!await resumeStreaming())
       print('[LocationProvider] Streaming enabled but not started');
   }
 
   Future<bool> resumeStreaming() async {
-    if (auth.value == true && subscription == null) {
-      if (await requestPermission() && subscription == null) {
-        subscription = _subscribeToPluginStream(controller);
-        print('[LocationProvider] Streaming started');
-        return true;
-      }
+    if (statusProvider.status.value == GpsStatus.available && subscription == null) {
+      subscription = _subscribeToPluginStream(controller);
+      print('[LocationProvider] Streaming started');
+      return true;
     }
     return false;
   }
@@ -59,16 +54,16 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void stopStreaming() {
-    auth.removeListener(_authChanged);
+    statusProvider.status.removeListener(_authChanged);
     pauseStreaming();
     print('[LocationProvider] Streaming stopped');
   }
 
 
   void _authChanged() async {
-    print('authChanged ${auth.value}');
+    print('authChanged ${statusProvider.status.value}');
     if (controller.hasListener) {
-      if (auth.value == true) {
+      if (statusProvider.status.value == GpsStatus.available) {
         resumeStreaming();
       } else {
         pauseStreaming();
@@ -94,26 +89,5 @@ class LocationProvider implements SensorDataProvider<LocationData> {
       ));
     });
     return _subscription;
-  }
-
-  // ---------------------------------------------------------------------------
-
-  /// Requests permission to use GPS. Must be called in main Isolate.
-  Future<bool> requestPermission() async {
-    var l = Location.Location();
-
-    bool enabled = await l.serviceEnabled();
-    if (!enabled) {
-      enabled = await l.requestService();
-      if (!enabled) {
-        return false;
-      }
-    }
-
-    var permission = await l.hasPermission();
-    if (permission == Location.PermissionStatus.denied) {
-      permission = await l.requestPermission();
-    }
-    return permission == Location.PermissionStatus.granted;
   }
 }

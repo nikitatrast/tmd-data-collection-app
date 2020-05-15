@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:tmd/backends/gps_status.dart';
 
 import 'backends/uploaded_trips_backend.dart';
 import 'backends/network_manager.dart';
@@ -17,6 +18,7 @@ import 'boundaries/acceleration_provider.dart';
 import 'boundaries/battery.dart';
 import 'boundaries/data_store.dart';
 import 'boundaries/gyroscope_provider.dart';
+import 'boundaries/location_permission.dart';
 import 'boundaries/location_provider_background.dart';
 import 'boundaries/preferences_provider.dart';
 import 'boundaries/sensor_data_provider.dart';
@@ -48,6 +50,18 @@ void main() async {
   var network = NetworkManager(prefs.cellularNetwork);
   var battery = BatteryNotifier();
   var gpsPrefRes = GPSPrefResult(prefs.gpsAuthNotifier, battery);
+  var gpsSysPref = LocationPermission();
+  var gpsStatusProvider = GpsStatusProvider(gpsPrefRes, gpsSysPref);
+
+  var printGpsStatus = () {
+    print('[main.dart] gpsPrefRes = ${gpsPrefRes.value}');
+    print('[main.dart] gpsSysPref = ${gpsSysPref.status.value}');
+    print('[main.dart] gpsStatus = ${gpsStatusProvider.status.value}');
+  };
+  gpsPrefRes.addListener(printGpsStatus);
+  gpsSysPref.status.addListener(printGpsStatus);
+  gpsStatusProvider.status.addListener(printGpsStatus);
+
   var storage = DataStore.instance;
   var uploadManager = UploadManager(storage, network.status, uploader);
   storage.onNewTrip = uploadManager.scheduleUpload;
@@ -70,6 +84,7 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: uploadManager.syncStatus),
+      ChangeNotifierProvider.value(value: gpsStatusProvider.status),
       Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
@@ -82,8 +97,8 @@ void main() async {
           // to collect data in background even when GPS is off.
           // Hence the custom implementation for android.
           create: (_) => (Platform.isIOS)
-              ? TripRecorderBackendImpl(gpsPrefRes, storage, makeProvidersForIos())
-              : TripRecorderBackendAndroidImpl(gpsPrefRes, storage.onNewTrip)),
+              ? TripRecorderBackendImpl(gpsStatusProvider, storage, makeProvidersForIos())
+              : TripRecorderBackendAndroidImpl(gpsStatusProvider, storage.onNewTrip)),
       Provider<GeoFenceStore>.value(value: storage),
     ],
     child: MyApp(),
