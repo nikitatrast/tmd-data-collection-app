@@ -212,11 +212,10 @@ class Uploader {
 
       try {
         response =
-        await dio.post(await _tripsUrl, data: FormData.fromMap(data));
+          await dio.post(await _tripsUrl, data: FormData.fromMap(data));
         print('[Uploader] response: ${response.data.runtimeType}');
         r.data = [];
         for (var trip in response.data) {
-          print(trip.runtimeType);
           trip = trip as Map;
           r.data.add(SavedTrip()
             ..mode = ModeValue.fromValue(trip['mode'])

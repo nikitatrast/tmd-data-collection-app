@@ -55,11 +55,9 @@ class _UploadedTripsPageState extends State<UploadedTripsPage> {
               return _errorText("");
             }
             if (!snapshot.hasData) {
-              print('[UploadedTripsPage] snapshot has no data');
               return _loadingText;
             }
-            print('[UploadedTripsPage] snapshot has data');
-
+            
             UploadedTripsBackendStatus status = snapshot.data.status;
             List<SavedTrip> trips = snapshot.data.trips;
 
