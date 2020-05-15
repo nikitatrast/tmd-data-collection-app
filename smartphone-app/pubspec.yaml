@@ -34,12 +34,12 @@ dependencies:
   async:
   quiver:
   device_info:
-  geolocator: ^5.3.1
+  flutter_markdown: 0.3.5
   foreground_service:
     path: ./plugins/foreground_service
   background_locator: ^1.1.2+2
-  flutter_markdown: 0.3.5
-  rxdart:
+  geolocator: ^5.3.1
+  location: ^3.0.2
 
 dev_dependencies:
   flutter_test:

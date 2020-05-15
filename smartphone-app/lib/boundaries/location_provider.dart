@@ -1,6 +1,11 @@
 import 'dart:async';
 
+/// Use geolocator plugin because it's the only one that works in
+/// a background Isolate... (as of 05.2020)
 import 'package:geolocator/geolocator.dart' as plugin;
+
+/// Use location plugin because we can request to enable the GPS with it.
+import 'package:location/location.dart' as Location;
 
 import '../backends/gps_auth.dart';
 import '../boundaries/sensor_data_provider.dart';
@@ -95,28 +100,20 @@ class LocationProvider implements SensorDataProvider<LocationData> {
 
   /// Requests permission to use GPS. Must be called in main Isolate.
   Future<bool> requestPermission() async {
-    var g = plugin.Geolocator();
+    var l = Location.Location();
 
-    var status = _isEnabled(await g.checkGeolocationPermissionStatus());
-
-    if (!status) {
-      // the plugin will request permission
-      await g.getCurrentPosition(desiredAccuracy: plugin.LocationAccuracy.lowest);
-      status = _isEnabled(await g.checkGeolocationPermissionStatus());
-    }
-    return status;
-  }
-
-  bool _isEnabled(plugin.GeolocationStatus status) {
-    switch (status) {
-      case plugin.GeolocationStatus.unknown:
-      case plugin.GeolocationStatus.granted:
-      case plugin.GeolocationStatus.restricted:
-        return true;
-      case plugin.GeolocationStatus.denied:
-      case plugin.GeolocationStatus.disabled:
-      default:
+    bool enabled = await l.serviceEnabled();
+    if (!enabled) {
+      enabled = await l.requestService();
+      if (!enabled) {
         return false;
+      }
     }
+
+    var permission = await l.hasPermission();
+    if (permission == Location.PermissionStatus.denied) {
+      permission = await l.requestPermission();
+    }
+    return permission == Location.PermissionStatus.granted;
   }
 }
