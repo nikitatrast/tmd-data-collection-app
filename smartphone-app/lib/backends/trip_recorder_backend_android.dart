@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:foreground_service/foreground_service.dart';
 
-import '../backends/gps_auth.dart';
+import '../backends/gps_pref_result.dart';
 import '../backends/trip_recorder_backend.dart';
 import '../boundaries/acceleration_provider.dart';
 import '../boundaries/data_store.dart';
@@ -24,7 +24,7 @@ import '../pages/trip_recorder_page.dart';
 ///
 class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   /// Whether usage of the GPS is allowed.
-  GPSAuth _gpsAuth;
+  GPSPrefResult _gpsAuth;
 
   /// Completes when save() method completes in the foreground service.
   Completer<bool> saveResponse;
@@ -86,7 +86,7 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
 
   void _gpsAuthChanged() async {
     _sendToIsolate({
-      'type': 'GPSAuth.value',
+      'type': 'GPSPrefResult.value',
       'value': _gpsAuth.value,
     });
   }
@@ -151,7 +151,7 @@ class Isolate {
     var now = DateTime.now();
     ForegroundService.notification.setText('Trip recording started ($now)');
 
-    var gpsAuth = IsolateGPSAuth(false);
+    var gpsPrefRes = IsolateGPSPrefResult(false);
 
     var storage = DataStore.instance;
     storage.onNewTrip = (Trip t) {
@@ -161,7 +161,7 @@ class Isolate {
       });
     };
 
-    var locationProvider = IsolateLocationProvider(gpsAuth);
+    var locationProvider = IsolateLocationProvider(gpsPrefRes);
     var providers = <Sensor, SensorDataProvider>{
       Sensor.gps: locationProvider,
       Sensor.accelerometer: AccelerationProvider(),
@@ -170,14 +170,14 @@ class Isolate {
 
     TripRecorderBackendImpl.logPrefix = "Isolate:TripRecorderBackend";
     var stopped = Completer();
-    var backend = IsolateTripRecorderBackend(gpsAuth, storage, providers);
+    var backend = IsolateTripRecorderBackend(gpsPrefRes, storage, providers);
     backend.onDispose = () => stopped.complete();
 
     // Callback to process message, where most of the stuff happens.
     await ForegroundService.setupIsolateCommunication(
         (data) => Isolate.onMessageReceived(
               data,
-              [backend, locationProvider, gpsAuth]
+              [backend, locationProvider, gpsPrefRes]
             ));
 
     // Tell the main isolate that we are ready to process messages.
@@ -236,9 +236,9 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
   /// Callback to notify that [dispose()] was called on this backend.
   Function onDispose = () {};
 
-  IsolateTripRecorderBackend(GPSAuth gpsAuth, TripRecorderStorage storage,
+  IsolateTripRecorderBackend(GPSPrefResult gpsPrefRes, TripRecorderStorage storage,
       Map<Sensor, SensorDataProvider> providers)
-      : super(gpsAuth, storage, providers);
+      : super(gpsPrefRes, storage, providers);
 
   @override
   void dispose() {
@@ -272,16 +272,16 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
   }
 }
 
-/// A proxy for [GPSAuth] that can be used to forward the GPSAuth value
+/// A proxy for [GPSPrefResult] that can be used to forward the GPSPrefResult value
 /// from the main isolate to the foreground service's isolate.
-class IsolateGPSAuth extends ValueNotifier<bool>
+class IsolateGPSPrefResult extends ValueNotifier<bool>
     with MessageHandler
-    implements GPSAuth {
-  IsolateGPSAuth(bool value) : super(value);
+    implements GPSPrefResult {
+  IsolateGPSPrefResult(bool value) : super(value);
 
   @override
   Future<bool> handleMessage(Map message) async {
-    if (message['type'] == 'GPSAuth.value') {
+    if (message['type'] == 'GPSPrefResult.value') {
       super.value = message['value'];
       return true;
     }
@@ -293,7 +293,7 @@ class IsolateGPSAuth extends ValueNotifier<bool>
 /// this implementation of [LocationProvider] forwards the method call
 /// to the main isolate via a message.
 class IsolateLocationProvider extends LocationProvider with MessageHandler {
-  IsolateLocationProvider(GPSAuth gpsAuth) : super(gpsAuth);
+  IsolateLocationProvider(GPSPrefResult gpsPrefRes) : super(gpsPrefRes);
 
   Map<int, Completer<bool>> _permissions = Map();
 

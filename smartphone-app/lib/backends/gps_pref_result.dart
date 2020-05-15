@@ -4,8 +4,8 @@ import 'package:flutter/cupertino.dart';
 import '../boundaries/preferences_provider.dart' show GPSPrefNotifier, GPSPref;
 import '../boundaries/battery.dart';
 
-/// Whether GPS use is allowed, based on user's preferences.
-class GPSAuth extends ValueNotifier<bool> {
+/// Whether GPS use is allowed, based on user's preferences and additional data.
+class GPSPrefResult extends ValueNotifier<bool> {
   /// User preferences regarding GPS use.
   GPSPrefNotifier _pref;
 
@@ -18,7 +18,7 @@ class GPSAuth extends ValueNotifier<bool> {
   /// Battery level above which GPS usage is allowed.
   int _batteryThreshold;
 
-  GPSAuth(this._pref, this._battery) : super(null) {
+  GPSPrefResult(this._pref, this._battery) : super(null) {
     _battery.addListener(_update);
     _pref.addListener(_update);
   }
@@ -56,7 +56,7 @@ class GPSAuth extends ValueNotifier<bool> {
 
   /// Updates this value based on [_batteryThreshold].
   Future<void> _checkBatteryLevel() async {
-    print('[GpsAuth] checking battery level now.');
+    print('[GpsPrefResult] checking battery level now.');
     var currentLevel = await BatteryNotifier.batteryLevel;
     super.value = (currentLevel > _batteryThreshold);
   }

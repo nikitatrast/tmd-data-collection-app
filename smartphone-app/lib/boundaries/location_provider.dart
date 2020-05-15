@@ -7,14 +7,14 @@ import 'package:geolocator/geolocator.dart' as plugin;
 /// Use location plugin because we can request to enable the GPS with it.
 import 'package:location/location.dart' as Location;
 
-import '../backends/gps_auth.dart';
+import '../backends/gps_pref_result.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart' show LocationData;
 
 /// Provides data ([LocationData]) from the GPS sensor.
 class LocationProvider implements SensorDataProvider<LocationData> {
   /// Whether GPS use is allowed.
-  GPSAuth auth;
+  GPSPrefResult auth;
 
   /// Subscription to the GPS sensor's stream.
   StreamSubscription subscription;

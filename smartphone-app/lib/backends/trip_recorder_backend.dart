@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:async/async.dart';
 
-import '../backends/gps_auth.dart';
+import '../backends/gps_pref_result.dart';
 
 import '../boundaries/acceleration_provider.dart';
 import '../boundaries/location_provider_background.dart';
@@ -30,7 +30,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   TripRecorderStorage _storage;
 
   /// Whether we can use the GPS.
-  GPSAuth gpsAuth;
+  GPSPrefResult gpsAuth;
 
   /// The newly recorded trip.
   Trip _trip;

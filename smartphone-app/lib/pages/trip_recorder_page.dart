@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
-import '../backends/gps_auth.dart';
+import '../backends/gps_pref_result.dart';
 import '../widgets/modes_view.dart';
 import '../widgets/map_widget.dart';
-import '../widgets/gps_auth_tile.dart';
+import '../widgets/gps_pref_tile.dart';
 
 /// Backend to provide data to [TripRecorderPage].
 abstract class TripRecorderBackend {
@@ -67,13 +67,13 @@ class TripRecorderPageState extends State<TripRecorderPage> {
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<GPSAuth>(builder: (context, auth, _) {
+    return Consumer<GPSPrefResult>(builder: (context, auth, _) {
       if (auth.value != true) {
         return noGPSPane();
       } else {
         return Column(children: [
           Expanded(child: MapWidget(recorder.locationStream())),
-          GpsAuthTile(),
+          GpsPrefTile(),
         ]);
       }
     });
@@ -92,7 +92,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
                   createdTime.toString().split('.').first.split(' ').last,
               style: TextStyle(fontSize: 20.0))),
       Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
-      GpsAuthTile(),
+      GpsPrefTile(),
     ]);
   }
 

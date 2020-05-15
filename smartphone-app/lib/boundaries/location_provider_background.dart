@@ -6,14 +6,14 @@ import 'package:background_locator/background_locator.dart';
 import 'package:background_locator/location_dto.dart';
 import 'package:background_locator/location_settings.dart';
 
-import '../backends/gps_auth.dart';
+import '../backends/gps_pref_result.dart';
 import '../boundaries/sensor_data_provider.dart';
 import '../models.dart' show LocationData;
 
 /// Provides [LocationData] using a background Isolate (iOS) or a
 /// foreground service (Android).
 class LocationProviderBackground implements SensorDataProvider<LocationData> {
-  GPSAuth _gpsAuth;
+  GPSPrefResult _gpsAuth;
 
   LocationProviderBackground(this._gpsAuth) {
     setupStream();
