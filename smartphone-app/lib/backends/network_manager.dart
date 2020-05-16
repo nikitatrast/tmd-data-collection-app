@@ -27,7 +27,7 @@ class NetworkManager {
     status.dispose();
   }
 
-  bool get _mobileAllowed => _auth.value;
+  bool get _mobileAllowed => _auth.value == true;
 
   bool get _mobileAvailable => _connectivity.value == ConnectivityStatus.mobile;
 

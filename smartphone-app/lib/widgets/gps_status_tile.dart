@@ -5,7 +5,7 @@ import 'package:tmd/boundaries/location_permission.dart';
 import 'package:tmd/widgets/gps_pref_tile.dart';
 
 
-class GpsStatusTile extends StatelessWidget {
+class GpsStatusTile extends StatelessWidget{
   @override
   Widget build(BuildContext context) {
     return Consumer<LocationPermission>(
@@ -24,7 +24,7 @@ class _GpsStatusTile extends StatefulWidget {
 }
 
 
-class _GpsStatusTileState extends State<_GpsStatusTile> {
+class _GpsStatusTileState extends State<_GpsStatusTile> with WidgetsBindingObserver {
   Widget get _title => Text('Utilisation du GPS');
   Widget get _trailing => Icon(Icons.arrow_forward_ios);
   Widget get _leading => Icon(Icons.map, size: 40);
@@ -33,6 +33,23 @@ class _GpsStatusTileState extends State<_GpsStatusTile> {
   void initState() {
     super.initState();
     widget.permission.updateStatus();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+
+    } else if (state == AppLifecycleState.resumed) {
+      widget.permission.updateStatus();
+    }
   }
 
   @override

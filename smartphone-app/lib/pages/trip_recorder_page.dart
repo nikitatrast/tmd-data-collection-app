@@ -17,6 +17,8 @@ abstract class TripRecorderBackend {
   Future<bool> save();
   void cancel();
   void dispose();
+  void toBackground() {}
+  void toForeground() {}
   Stream<LocationData> locationStream();
 }
 
@@ -40,16 +42,29 @@ class TripRecorderPage extends StatefulWidget {
   State<StatefulWidget> createState() => TripRecorderPageState();
 }
 
-class TripRecorderPageState extends State<TripRecorderPage> {
+class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingObserver {
   TripRecorderBackend recorder;
   DateTime createdTime;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     recorder = widget.backend;
     recorder.start(widget.mode);
     createdTime = DateTime.now();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      print('[TripRecorderPage] going into background');
+      recorder.toBackground();
+    } else if (state == AppLifecycleState.resumed) {
+      print('[TripRecorderPage] going into foreground');
+      recorder.toForeground();
+    }
   }
 
   Future<bool> onSave() async {
@@ -63,12 +78,27 @@ class TripRecorderPageState extends State<TripRecorderPage> {
 
   @override
   void dispose() {
+    recorder.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-    recorder.dispose(); // make sure recorder's resources are released!
   }
 
   Widget mainPane(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.max, children: [
+      if (widget.mode == Mode.test)
+        Container(
+          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+          child: Row(
+            children: [
+              Icon(Icons.help_outline, size: 30,),
+              Container(width: 5),
+              Flexible(
+                  //width: MediaQuery.of(context).size.width,
+                  child: Text('Vous pouvez utiliser ce mode pour découvrir l\'application, les données ne seront pas gardées sur le serveur.')
+              ),
+            ]
+          ),
+        ),
       Expanded(
           child: Consumer<GpsStatusNotifier>(builder: (context, status, _) {
         switch (status.value) {

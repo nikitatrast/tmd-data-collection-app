@@ -23,7 +23,7 @@ import '../pages/trip_recorder_page.dart';
 /// - Another instance of a [TripRecorderBackend] in the foreground service
 ///   implements the method calls.
 ///
-class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
+class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
   /// Whether usage of the GPS is allowed.
   ForwardingGpsStatusProvider _gpsStatus;
 
@@ -61,6 +61,11 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   @override
   Stream<LocationData> locationStream() {
     return outputController.stream;
+  }
+
+  @override
+  void toForeground() {
+    _gpsStatus.forceUpdate(requestAuth: false);
   }
 
   @override
@@ -124,16 +129,24 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
   
   IsolateTripRecorderBackend(GpsStatusNotifier provider, TripRecorderStorage storage,
       Map<Sensor, SensorDataProvider> providers)
-      : super(provider, storage, providers) 
-  {
-    subscription = locationStream().listen((locationData) {
-      ForegroundService.sendToPort({
-        'method': 'LocationData',
-        'data': locationData.serialize(),
-      });
-    });
-  }
+      : super(provider, storage, providers);
 
+  @override
+  Future<bool> start(Mode m) async {
+    bool ok = await super.start(m);
+    if (ok) {
+      subscription = locationStream().listen((locationData) {
+        ForegroundService.sendToPort({
+          'method': 'LocationData',
+          'data': locationData.serialize(),
+        });
+      });
+    } else {
+      print('[IsolateTripRecorderBackend] Error: start() returned false');
+    }
+    return ok;
+
+  }
   @override
   void dispose() {
     onDispose();
@@ -154,10 +167,12 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
       }));
     } else if (message['method'] == 'TripRecorderBackend.start') {
       Mode mode = ModeValue.fromValue(message['mode']);
-      start(mode).then((value) => ForegroundService.sendToPort({
-        'method': 'TripRecorderBackend.start',
-        'value': value,
-      }));
+      start(mode).then((value) {
+        ForegroundService.sendToPort({
+          'method': 'TripRecorderBackend.start',
+          'value': value,
+        });
+      });
     } else {
       return false;
     }
@@ -186,7 +201,7 @@ class ForwardingGpsStatusProvider implements GpsStatusNotifier, MessageHandler {
   @override
   Future<bool> handleMessage(Map message) async {
     if (message['method'] == 'GpsStatusNotifier.forceUpdate') {
-      await this.forceUpdate();
+      await this.forceUpdate(requestAuth: message['requestAuth']);
       sendMessage({
         'methodResult': 'GpsStatusNotifier.forceUpdate',
         'key': message['key'],
@@ -224,8 +239,8 @@ class ForwardingGpsStatusProvider implements GpsStatusNotifier, MessageHandler {
   }
 
   @override
-  Future<void> forceUpdate() {
-    return delegate.forceUpdate();
+  Future<void> forceUpdate({bool requestAuth}) {
+    return delegate.forceUpdate(requestAuth: requestAuth);
   }
 
   @override
@@ -251,20 +266,15 @@ class IsolateGpsStatusProvider extends ValueNotifier<GpsStatus>
 
   Map<int, Completer> _responses = {};
 
-  IsolateGpsStatusProvider() : super(GpsStatus.systemDisabled) {
-    // get intial value
-    ForegroundService.sendToPort({
-      'method': 'GpsStatusNotifier.value',
-      'key': 'constructor_call_from_isolate',
-    });
-  }
+  IsolateGpsStatusProvider() : super(GpsStatus.systemDisabled);
 
   @override
-  Future<void> forceUpdate() async {
+  Future<void> forceUpdate({bool requestAuth}) async {
     int key = DateTime.now().millisecondsSinceEpoch;
     _responses[key] = Completer();
     ForegroundService.sendToPort({
       'method': 'GpsStatusNotifier.forceUpdate',
+      'requestAuth': requestAuth,
       'key': key,
     });
     await _responses[key].future;
@@ -316,10 +326,13 @@ class Isolate {
     print('[Isolate] --- started --- ');
 
     var now = DateTime.now();
+    var stopped = Completer();
     ForegroundService.notification.setText('Trip recording started ($now)');
     TripRecorderBackendImpl.logPrefix = "Isolate:TripRecorderBackendImpl";
     GpsStatusNotifierImpl.logPrefix = "Isolate:GpsStatusNotifierImpl";
 
+
+    print('[Isolate] initializing storage');
     var storage = DataStore.instance;
     storage.onNewTrip = (Trip t) {
       ForegroundService.sendToPort({
@@ -327,25 +340,31 @@ class Isolate {
         'trip': t.serialize(),
       });
     };
+
+    print('[Isolate] initializing GpsStatusProvider');
     var gpsStatusProvider = IsolateGpsStatusProvider();
+
+    print('[Isolate] initializing Locatoin Provider');
     var locationProvider = LocationProvider(gpsStatusProvider);
     var providers = <Sensor, SensorDataProvider>{
       Sensor.gps: locationProvider,
       Sensor.accelerometer: AccelerationProvider(),
       Sensor.gyroscope: GyroscopeProvider(),
     };
+
+    print('[Isolate] initializing TripRecorderBackend');
     var backend = IsolateTripRecorderBackend(gpsStatusProvider, storage, providers);
-    var stopped = Completer();
     backend.onDispose = () => stopped.complete();
 
     // Callback to process message, where most of the stuff happens.
+    print('[Isolate] waiting for setupIsolateCommunication');
     await ForegroundService.setupIsolateCommunication(
-        (data) => Isolate.onMessageReceived(
-        data,
-        [backend, gpsStatusProvider]
-    ));
+        (data) => Isolate.onMessageReceived(data, [backend, gpsStatusProvider])
+    );
+    print('[Isolate] setupIsolateCommunication done.');
 
     // Tell the main isolate that we are ready to process messages.
+    print('[Isolate] sending ForegroundServiceReady signal');
     ForegroundService.sendToPort({'method': 'ForegroundServiceReady'});
     
     /// Keeps the foreground service running until [stopped] completes.

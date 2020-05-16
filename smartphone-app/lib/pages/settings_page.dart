@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:grouped_list/grouped_list.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
@@ -37,24 +38,28 @@ class SettingsPage extends StatelessWidget {
   }
 
   Widget body(BuildContext context) {
-    return Column(children: [
-      ListView(
-          shrinkWrap: true,
-          children: ListTile.divideTiles(context: context, tiles: [
-            GpsStatusTile(),
-            _cellularNetworkTile,
-            _consentTile,
-            _dataExplorerTile,
-            _uploadedTripsTile,
-            _geoFenceTile,
-          ]).toList()),
-      Divider(),
-      Expanded(child: Container()),
-      Text('- Info - '),
-      UidTile(),
-      _gpsStatusTile,
-      SyncStatusWidget(),
-    ]);
+    return ListView(
+      children:
+      ListTile.divideTiles(context: context, tiles: [
+        GpsStatusTile(),
+        _cellularNetworkTile,
+        _consentTile,
+        _dataExplorerTile,
+        _uploadedTripsTile,
+        _geoFenceTile,
+        ]).toList()
+      + [
+        Divider(height:1),
+        Container(height:50),
+        Text('- info -', textAlign: TextAlign.center,),
+      ]
+      + ListTile.divideTiles(context: context, tiles: [
+        UidTile(),
+        SyncStatusWidget(),
+        if (!Platform.isIOS)
+          _gpsStatusTile,
+        ]).toList(),
+    );
   }
 
   /// Widget to open the page with consent text.

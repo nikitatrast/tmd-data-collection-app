@@ -7,7 +7,7 @@ import '../models.dart' show LocationData, Mode, Sensor, Serializable, Trip;
 import '../pages/trip_recorder_page.dart' show TripRecorderBackend;
 
 
-class TripRecorderBackendImpl implements TripRecorderBackend {
+class TripRecorderBackendImpl extends TripRecorderBackend {
   /// Line prefix used for logging
   static String logPrefix = 'TripRecorderBackend';
 
@@ -35,7 +35,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     _trip.start = DateTime.now();
     _tripEnd = Completer();
 
-    gpsStatusProvider.forceUpdate();
+    gpsStatusProvider.forceUpdate(requestAuth: true);
 
     for (var sensor in _providers.keys) {
       print('[$logPrefix] startRecording for $sensor');
@@ -86,7 +86,8 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
 
   @override
   Stream<LocationData> locationStream() {
-    return _providers[Sensor.gps].stream;
+    // make sure to stop streaming sensor data when recording ends.
+    return _recorderStream(_providers[Sensor.gps].stream, Sensor.gps.toString());
   }
 
   /// Wraps [input] into a [Stream] that closes as soon as
@@ -97,5 +98,10 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
     // recording is done.
     Stream<T> done = _tripEnd.future.asStream().map((e) => null);
     return StreamGroup.merge<T>([done, input]).takeWhile((e) => e != null);
+  }
+
+  @override
+  void toForeground() {
+    gpsStatusProvider.forceUpdate(requestAuth: false);
   }
 }

@@ -14,7 +14,7 @@ extension GpsStatusValue on GpsStatus {
 }
 
 abstract class GpsStatusNotifier extends ChangeNotifier {
-  Future<void> forceUpdate();
+  Future<void> forceUpdate({bool requestAuth});
   GpsStatus get value;
   void dispose();
 }
@@ -30,15 +30,15 @@ class GpsStatusNotifierImpl extends ValueNotifier<GpsStatus> implements GpsStatu
   : super(GpsStatus.systemDisabled)
   {
     _systemPref.status.addListener(() => _update(_systemPref.status.value));
-    _userPref.addListener(() => _update(null));
+    _userPref.addListener(() => _update(null, requestAuth: false));
     forceUpdate();
   }
 
-  Future<void> forceUpdate() {
-    return _update(null);
+  Future<void> forceUpdate({bool requestAuth}) {
+    return _update(null, requestAuth: requestAuth);
   }
 
-  Future<void> _update(LocationSystemStatus systemValue) async {
+  Future<void> _update(LocationSystemStatus systemValue, {bool requestAuth}) async {
     if (systemValue != null) {
       switch (_systemPref.status.value) {
         case LocationSystemStatus.disabled:
@@ -58,9 +58,9 @@ class GpsStatusNotifierImpl extends ValueNotifier<GpsStatus> implements GpsStatu
     }
     else {
       if (_userPref.value == true) {
-        var sysValue = await _systemPref.request();
+        var sysValue = requestAuth ? await _systemPref.request(): await _systemPref.updateStatus();
         print('$logPrefix._update => sysValue = $sysValue, userPref = ${_userPref.value}');
-        await _update(sysValue);
+        await _update(sysValue, requestAuth: false);
       } else {
         super.value = GpsStatus.userDisabled;
       }

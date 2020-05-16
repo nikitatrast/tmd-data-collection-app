@@ -83,17 +83,17 @@ class _RegisterPageState extends State<RegisterPage> {
                                       )),
                               ])))
             ]),
-        body: Scrollbar(
-            child: SingleChildScrollView(
-          child: FutureBuilder(
+        body: FutureBuilder(
               future: assets.loadString("assets/consent-form.md"),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return Center(
-                    child: Text('Chargement...')
+                    child: Text('Chargement...', textAlign: TextAlign.center,)
                   );
                 } else
-                  return Container(
+                  return Scrollbar(
+                      child: SingleChildScrollView(
+                      child: Container(
                     padding: EdgeInsets.all(16),
                     child: Column(children: [
                       Align(
@@ -128,9 +128,9 @@ class _RegisterPageState extends State<RegisterPage> {
                         )
                       ])
                     ]),
-                  );
+                  )));
               }),
-        )));
+        );
   }
 
   void initState() {

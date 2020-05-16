@@ -54,9 +54,7 @@ void main() async {
   var gpsStatus = GpsStatusNotifierImpl(gpsPrefRes, gpsSysPref);
 
   var printGpsStatus = () {
-    print('[main.dart] gpsPrefRes = ${gpsPrefRes.value}');
-    print('[main.dart] gpsSysPref = ${gpsSysPref.status.value}');
-    print('[main.dart] gpsStatus = ${gpsStatus.value}');
+    print('[main.dart] gps: user:${gpsPrefRes.value} & ${gpsSysPref.status.value} => status:${gpsStatus.value}');
   };
   gpsPrefRes.addListener(printGpsStatus);
   gpsSysPref.status.addListener(printGpsStatus);

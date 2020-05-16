@@ -6,23 +6,23 @@ extension ModeText on Mode {
   String get text {
     switch (this) {
       case Mode.test:
-        return "Test mode";
+        return "Juste pour tester";
       case Mode.walk:
-        return "Marche à pied";
+        return "Trajet à pied";
       case Mode.run:
-        return "Course à pied";
+        return "Trajet en courant";
       case Mode.bike:
-        return "Vélo";
+        return "Trajet en vélo";
       case Mode.motorcycle:
-        return "Moto";
+        return "Trajet en moto / scooter";
       case Mode.car:
-        return "Voiture";
+        return "Trajet en voiture";
       case Mode.bus:
-        return "Bus";
+        return "Trajet en bus / car";
       case Mode.metro:
-        return "Métro / Tram";
+        return "Trajet en métro / tram";
       case Mode.train:
-        return "Train";
+        return "Trajet en train";
       default:
         throw Exception("Not implemented");
     }
@@ -52,7 +52,7 @@ extension ModeIcon on Mode {
   IconData get iconData {
     switch (this) {
       case Mode.test:
-        return Icons.departure_board;
+        return Icons.weekend;
       case Mode.walk:
         return Icons.directions_walk;
       case Mode.run:
@@ -64,11 +64,11 @@ extension ModeIcon on Mode {
       case Mode.car:
         return Icons.directions_car;
       case Mode.bus:
-        return Icons.directions_bus;
+        return Icons.airport_shuttle;
       case Mode.metro:
-        return Icons.directions_subway;
+        return Icons.subway;
       case Mode.train:
-        return Icons.directions_railway;
+        return Icons.train;
       default:
         throw Exception("Not implemented");
     }

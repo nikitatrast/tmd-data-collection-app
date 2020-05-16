@@ -53,26 +53,29 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
     bounds = LatLngBounds();
     markers = [];
     this.inForeground = true;
+    subscription?.cancel(); // initState may be called multiple times!
     subscription = widget.stream
         .listen((v) => newLocation(v.latitude, v.longitude, v.altitude));
   }
 
   @override
   void dispose() {
-    super.dispose();
-    print('[MapWidget] dispose()');
     WidgetsBinding.instance.removeObserver(this);
-    subscription.cancel();
+    print('[MapWidget] dispose()');
+    var s = subscription;
+    subscription = null;
+    s?.cancel();
+    super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
-      print('[MapWidget] going into background');
+      print('[MapWidget] going into background ${this.hashCode} / ${subscription.hashCode}');
       this.inForeground = false;
     } else if (state == AppLifecycleState.resumed) {
-      print('[MapWidget] going into foreground');
+      print('[MapWidget] going into foreground ${this.hashCode} / ${subscription.hashCode}');
       this.inForeground = true;
     }
   }
@@ -168,6 +171,10 @@ class MapWidgetState extends State<MapWidget> with WidgetsBindingObserver {
 
   /// Scales the [FlutterMap] to display the whole trip.
   void fullTripView() {
+    if (markers.length < 2) {
+      mapController.move(lastLocation, 16.0);
+      return;
+    }
     mapController.fitBounds(
       bounds,
       options: FitBoundsOptions(
