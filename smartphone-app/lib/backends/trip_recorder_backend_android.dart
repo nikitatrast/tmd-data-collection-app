@@ -27,6 +27,9 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   /// Whether usage of the GPS is allowed.
   ForwardingGpsStatusProvider _gpsStatus;
 
+  /// Delegate for [_gpsStatus].
+  GpsStatusNotifier _gpsStatusDelegate;
+
   /// Completes when save() method completes in the foreground service.
   Completer<bool> saveResponse;
 
@@ -42,9 +45,7 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   /// Called when a new trip is saved.
   final void Function(Trip) onNewTrip;
 
-  TripRecorderBackendAndroidImpl(GpsStatusNotifier gpsAuth, this.onNewTrip) {
-    _gpsStatus = ForwardingGpsStatusProvider(gpsAuth, _sendToIsolate);
-  }
+  TripRecorderBackendAndroidImpl(this._gpsStatusDelegate, this.onNewTrip);
 
   @override
   void cancel() async {
@@ -73,6 +74,7 @@ class TripRecorderBackendAndroidImpl implements TripRecorderBackend {
   Future<bool> start(Mode tripMode) async {
     startResponse = Completer();
     _isCommunicationSetup = Completer();
+    _gpsStatus = ForwardingGpsStatusProvider(_gpsStatusDelegate, _sendToIsolate);
 
     await Isolate.start();
     await ForegroundService.setupIsolateCommunication(_onIsolateMessage);
@@ -174,6 +176,11 @@ class ForwardingGpsStatusProvider implements GpsStatusNotifier, MessageHandler {
   ForwardingGpsStatusProvider(this.delegate, this.sendMessage) {
     sendValueToPort('constructor_call_main_isolate');
     delegate.addListener(sendValueToPort);
+    delegate.addListener(_show);
+  }
+
+  void _show() {
+    print('[ForwardingGpsStatus] listener called: ${delegate.value}');
   }
 
   @override
@@ -209,6 +216,8 @@ class ForwardingGpsStatusProvider implements GpsStatusNotifier, MessageHandler {
   @override
   void dispose() {
     delegate.removeListener(sendValueToPort);
+    delegate.removeListener(_show);
+    print('[ForwardingGpsStatus] dispose() called');
     sendMessage({
       'method': 'GpsStatusNotifier.dispose',
     });

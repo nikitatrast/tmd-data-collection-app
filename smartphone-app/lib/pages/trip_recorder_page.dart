@@ -1,14 +1,15 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:tmd/backends/gps_status.dart';
+import 'package:tmd/widgets/gps_status_tile.dart';
 
 import '../models.dart';
-import '../backends/gps_pref_result.dart';
 import '../widgets/modes_view.dart';
 import '../widgets/map_widget.dart';
-import '../widgets/gps_pref_tile.dart';
 
 /// Backend to provide data to [TripRecorderPage].
 abstract class TripRecorderBackend {
@@ -21,7 +22,6 @@ abstract class TripRecorderBackend {
 
 /// Page to record sensor's data during a trip.
 class TripRecorderPage extends StatefulWidget {
-
   /// Travel mode of the current [Trip].
   final Mode mode;
 
@@ -68,34 +68,77 @@ class TripRecorderPageState extends State<TripRecorderPage> {
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<GpsStatusNotifier>(
-        builder: (context, status, _) {
-      if (status.value != GpsStatus.available) {
-        return noGPSPane();
-      } else {
-        return Column(children: [
-          Expanded(child: MapWidget(recorder.locationStream())),
-          GpsPrefTile(),
-        ]);
-      }
-    });
+    return Column(mainAxisSize: MainAxisSize.max, children: [
+      Expanded(
+          child: Consumer<GpsStatusNotifier>(builder: (context, status, _) {
+        switch (status.value) {
+          case GpsStatus.userDisabled:
+            return noGPSPane(context);
+          case GpsStatus.systemDisabled:
+          case GpsStatus.systemForbidden:
+            if (Platform.isIOS)
+              return noGPSPaneIOS(context);
+            return noGPSPane(context);
+          case GpsStatus.available:
+          default:
+            return MapWidget(recorder.locationStream());
+        }
+      })),
+      GpsStatusTile(),
+    ]);
   }
 
-  Widget noGPSPane() {
-    return Column(mainAxisSize: MainAxisSize.max, children: [
-      Container(
-          padding: EdgeInsets.only(top: 20, bottom: 10),
-          child: Text('Enregistrement en cours',
-              style: TextStyle(fontSize: 30.0))),
-      Container(
-          padding: EdgeInsets.only(bottom: 20),
-          child: Text(
-              'Début du trajet : ' +
-                  createdTime.toString().split('.').first.split(' ').last,
-              style: TextStyle(fontSize: 20.0))),
-      Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
-      GpsPrefTile(),
-    ]);
+  Widget noGPSPane(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(left: 10),
+      child: Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+        Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
+        Container(
+            padding: EdgeInsets.only(left: 10, top: 20, bottom: 20),
+            child: Text(
+                'Début du trajet : ' +
+                    createdTime.toString().split('.').first.split(' ').last,
+                style: TextStyle(fontSize: 20.0))),
+        Container(
+            padding: EdgeInsets.only(left: 10),
+            child: Text(
+                'Le GPS est désactivé.',
+                style: TextStyle(fontSize: 20.0))),
+        Container(
+            padding: EdgeInsets.only(top: 5, left: 10, bottom: 10),
+            child: Text(
+                'Vous pouvez l\'activer ci dessous.',
+                style: TextStyle(fontSize: 15.0))),
+      ]),
+    );
+  }
+
+  Widget noGPSPaneIOS(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(left: 10),
+      child: Column(
+          mainAxisSize: MainAxisSize.max,
+          //crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
+            Container(
+                padding: EdgeInsets.only(left: 10, top: 20, bottom: 20),
+                child: Text(
+                    'Début du trajet : ' +
+                        createdTime.toString().split('.').first.split(' ').last,
+                    style: TextStyle(fontSize: 20.0))),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: MarkdownBody(
+                data: iosNeedsGpsText,
+                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+              ),
+            )
+          ]),
+    );
   }
 
   @override
@@ -110,7 +153,7 @@ class TripRecorderPageState extends State<TripRecorderPage> {
                 Icon(widget.mode.iconData),
                 Container(
                     padding: EdgeInsets.only(left: 10),
-                    child: Text(widget.mode.text))
+                    child: Text('Enregistrement en cours'))
               ]),
             ),
             body: Column(
@@ -179,7 +222,8 @@ class TripRecorderPageState extends State<TripRecorderPage> {
         });
     AlertDialog alert = AlertDialog(
       title: Text("Confirmation"),
-      content: Text("Voulez-vous vraiment enregistrer ce trajet ? Les données seront transmises au server. Assurez-vous que le mode de transport est correctement renseigné."),
+      content: Text(
+          "Voulez-vous vraiment enregistrer ce trajet ? Les données seront transmises au server. Assurez-vous que le mode de transport est correctement renseigné."),
       actions: [
         cancelButton,
         continueButton,
@@ -209,4 +253,21 @@ class TripRecorderPageState extends State<TripRecorderPage> {
       widget.onExit();
     });
   }
+
+  final String iosNeedsGpsText = """
+# Attention
+
+
+Sur iOS, le seul moyen pour l'application de collecter des données lorsque
+l'application n'est pas au premier plan ou que votre écran est verrouillé
+est d'utiliser le mode GPS. Pour cette raison, l'autorisation d'utiliser votre
+GPS est nécessaire.
+
+
+Si vous ne souhaitez pas activer le GPS, assurez-vous que l'application reste
+ouverte et désactiver le verrouillage automatique de l'écran.
+
+
+Vous pouvez activer le GPS ci-dessous.
+""".replaceAll(RegExp(r' *\n(?!\n) *'), " ");
 }

@@ -85,6 +85,7 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: uploadManager.syncStatus),
       ChangeNotifierProvider.value(value: gpsStatus as GpsStatusNotifier),
+      Provider<LocationPermission>.value(value: gpsSysPref),
       Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),

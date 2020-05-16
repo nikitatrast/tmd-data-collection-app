@@ -2,13 +2,12 @@ import 'dart:io' show Platform;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
-import '../backends/gps_pref_result.dart';
+import '../backends/gps_status.dart';
 import '../boundaries/preferences_provider.dart' show CellularNetworkAllowed;
-
-import '../widgets/gps_pref_tile.dart';
 import '../widgets/loading_switch_tile_widget.dart';
 import '../widgets/sync_status_widget.dart';
 import '../widgets/uid_tile.dart';
+import '../widgets/gps_status_tile.dart';
 
 /// Page to display the app's settings and configuration options.
 class SettingsPage extends StatelessWidget {
@@ -24,12 +23,8 @@ class SettingsPage extends StatelessWidget {
   /// Opens the page to display consent form.
   final void Function() openConsent;
 
-  SettingsPage(
-      this.openDataExplorer,
-      this.openUploadedTrips,
-      this.openGeoFences,
-      this.openConsent
-  );
+  SettingsPage(this.openDataExplorer, this.openUploadedTrips,
+      this.openGeoFences, this.openConsent);
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +41,7 @@ class SettingsPage extends StatelessWidget {
       ListView(
           shrinkWrap: true,
           children: ListTile.divideTiles(context: context, tiles: [
-            GpsPrefTile(),
+            GpsStatusTile(),
             _cellularNetworkTile,
             _consentTile,
             _dataExplorerTile,
@@ -64,52 +59,71 @@ class SettingsPage extends StatelessWidget {
 
   /// Widget to open the page with consent text.
   Widget get _consentTile => ListTile(
-    title: Text('Notice d\'information'),
-    leading: Icon(Icons.info_outline, size: 40),
-    trailing: Icon(Icons.arrow_forward_ios),
-    onTap: openConsent,
-  );
+        title: Text('Notice d\'information'),
+        leading: Icon(Icons.info_outline, size: 40),
+        trailing: Icon(Icons.arrow_forward_ios),
+        onTap: openConsent,
+      );
 
   /// Widget to open the data explorer page.
   Widget get _dataExplorerTile => ListTile(
-    title: Text("Données locales"),
-    leading: Icon(Icons.insert_drive_file, size: 40),
-    trailing: Icon(Icons.arrow_forward_ios),
-    onTap: openDataExplorer
-  );
+      title: Text("Données locales"),
+      leading: Icon(Icons.insert_drive_file, size: 40),
+      trailing: Icon(Icons.arrow_forward_ios),
+      onTap: openDataExplorer);
 
   /// Widget to open the data explorer page.
   Widget get _uploadedTripsTile => ListTile(
       title: Text("Données envoyées"),
       leading: Icon(Icons.cloud_circle, size: 40),
       trailing: Icon(Icons.arrow_forward_ios),
-      onTap: openUploadedTrips
-  );
+      onTap: openUploadedTrips);
 
   /// Widget to open the geoFence page.
   Widget get _geoFenceTile => ListTile(
       title: Text("Zones privées"),
       leading: Icon(Icons.security, size: 40),
       trailing: Icon(Icons.arrow_forward_ios),
-      onTap: openGeoFences
-  );
+      onTap: openGeoFences);
 
   /// Widget to choose if synchronisation is enabled over cellular network.
-  Widget get _cellularNetworkTile =>
-      LoadingSwitchTile<CellularNetworkAllowed>(
+  Widget get _cellularNetworkTile => LoadingSwitchTile<CellularNetworkAllowed>(
         title: const Text('Synchronisation 3G'),
         options: [Text('Wifi uniquement'), Text('Autorisée')],
         secondary: const Icon(Icons.wifi, size: 40),
       );
 
   /// Widget to display whether the GPS is enabled.
-  Widget get _gpsStatusTile =>
-      (Platform.isIOS) ? Container() : Consumer<GPSPrefResult>(
+  Widget get _gpsStatusTile => GpsStatusValue();
+}
+
+class GpsStatusValue extends StatefulWidget {
+  @override
+  _GpsStatusValueState createState() => _GpsStatusValueState();
+}
+
+class _GpsStatusValueState extends State<GpsStatusValue> {
+  @override
+  Widget build(BuildContext context) => (Platform.isIOS)
+      ? Container()
+      : Consumer<GpsStatusNotifier>(
           builder: (context, auth, _) => ListTile(
-            title: auth.value
-                ? Text('Collecte GPS : autorisée')
-                : Text('Collecte GPS : désactivée'),
-            trailing: Icon(auth.value ? Icons.done : Icons.not_interested),
-          )
-      );
+                title: Text(_gpsStatusTileTitle(auth.value)),
+                trailing: Icon((auth.value == GpsStatus.available)
+                    ? Icons.done
+                    : Icons.not_interested),
+              ));
+
+  _gpsStatusTileTitle(GpsStatus value) {
+    switch (value) {
+      case GpsStatus.systemDisabled:
+        return 'GPS: le capteur est éteint';
+      case GpsStatus.systemForbidden:
+        return 'GPS: autorisation requise';
+      case GpsStatus.userDisabled:
+        return 'GPS: désactivé';
+      case GpsStatus.available:
+        return 'GPS: autorisé';
+    }
+  }
 }

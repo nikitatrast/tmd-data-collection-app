@@ -24,6 +24,7 @@ class GpsPrefTile extends StatelessWidget {
           title: const Text('Utilisation du GPS'),
           subtitle: Text(auth.value?.displayName ?? 'chargement...'),
           leading: const Icon(Icons.map, size: 40),
+          trailing: Icon(Icons.arrow_forward_ios),
           onTap: () => showDialog(
               context: context,
               builder: (BuildContext context) => SimpleDialog(
