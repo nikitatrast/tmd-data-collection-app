@@ -11,7 +11,7 @@ import '../models.dart' show LocationData;
 /// Provides data ([LocationData]) from the GPS sensor.
 class LocationProvider implements SensorDataProvider<LocationData> {
   /// Whether GPS use is allowed.
-  GpsStatusProvider statusProvider;
+  GpsStatusNotifier statusProvider;
 
   /// Subscription to the GPS sensor's stream.
   StreamSubscription subscription;
@@ -32,13 +32,13 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void startStreaming() async {
-    statusProvider.status.addListener(_authChanged);
+    statusProvider.addListener(_authChanged);
     if (!await resumeStreaming())
       print('[LocationProvider] Streaming enabled but not started');
   }
 
   Future<bool> resumeStreaming() async {
-    if (statusProvider.status.value == GpsStatus.available && subscription == null) {
+    if (statusProvider.value == GpsStatus.available && subscription == null) {
       subscription = _subscribeToPluginStream(controller);
       print('[LocationProvider] Streaming started');
       return true;
@@ -54,16 +54,16 @@ class LocationProvider implements SensorDataProvider<LocationData> {
   }
 
   void stopStreaming() {
-    statusProvider.status.removeListener(_authChanged);
+    statusProvider.removeListener(_authChanged);
     pauseStreaming();
     print('[LocationProvider] Streaming stopped');
   }
 
 
   void _authChanged() async {
-    print('authChanged ${statusProvider.status.value}');
+    print('authChanged ${statusProvider.value}');
     if (controller.hasListener) {
-      if (statusProvider.status.value == GpsStatus.available) {
+      if (statusProvider.value == GpsStatus.available) {
         resumeStreaming();
       } else {
         pauseStreaming();

@@ -68,7 +68,8 @@ class TripRecorderPageState extends State<TripRecorderPage> {
   }
 
   Widget mainPane(BuildContext context) {
-    return Consumer<ValueNotifier<GpsStatus>>(builder: (context, status, _) {
+    return Consumer<GpsStatusNotifier>(
+        builder: (context, status, _) {
       if (status.value != GpsStatus.available) {
         return noGPSPane();
       } else {

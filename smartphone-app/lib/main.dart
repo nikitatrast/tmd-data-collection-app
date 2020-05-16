@@ -51,16 +51,16 @@ void main() async {
   var battery = BatteryNotifier();
   var gpsPrefRes = GPSPrefResult(prefs.gpsAuthNotifier, battery);
   var gpsSysPref = LocationPermission();
-  var gpsStatusProvider = GpsStatusProvider(gpsPrefRes, gpsSysPref);
+  var gpsStatus = GpsStatusNotifierImpl(gpsPrefRes, gpsSysPref);
 
   var printGpsStatus = () {
     print('[main.dart] gpsPrefRes = ${gpsPrefRes.value}');
     print('[main.dart] gpsSysPref = ${gpsSysPref.status.value}');
-    print('[main.dart] gpsStatus = ${gpsStatusProvider.status.value}');
+    print('[main.dart] gpsStatus = ${gpsStatus.value}');
   };
   gpsPrefRes.addListener(printGpsStatus);
   gpsSysPref.status.addListener(printGpsStatus);
-  gpsStatusProvider.status.addListener(printGpsStatus);
+  gpsStatus.addListener(printGpsStatus);
 
   var storage = DataStore.instance;
   var uploadManager = UploadManager(storage, network.status, uploader);
@@ -84,7 +84,7 @@ void main() async {
       ChangeNotifierProvider.value(value: prefs.cellularNetwork),
       ChangeNotifierProvider.value(value: prefs.gpsAuthNotifier),
       ChangeNotifierProvider.value(value: uploadManager.syncStatus),
-      ChangeNotifierProvider.value(value: gpsStatusProvider.status),
+      ChangeNotifierProvider.value(value: gpsStatus as GpsStatusNotifier),
       Provider<UidStore>.value(value: prefs.uidStore),
       Provider<ExplorerBackend>.value(
           value: ExplorerBackendImpl(storage, uploadManager)),
@@ -97,8 +97,8 @@ void main() async {
           // to collect data in background even when GPS is off.
           // Hence the custom implementation for android.
           create: (_) => (Platform.isIOS)
-              ? TripRecorderBackendImpl(gpsStatusProvider, storage, makeProvidersForIos())
-              : TripRecorderBackendAndroidImpl(gpsStatusProvider, storage.onNewTrip)),
+              ? TripRecorderBackendImpl(gpsStatus, storage, makeProvidersForIos())
+              : TripRecorderBackendAndroidImpl(gpsStatus, storage.onNewTrip)),
       Provider<GeoFenceStore>.value(value: storage),
     ],
     child: MyApp(),

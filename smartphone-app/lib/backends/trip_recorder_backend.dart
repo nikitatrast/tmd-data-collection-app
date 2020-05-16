@@ -17,7 +17,7 @@ class TripRecorderBackendImpl implements TripRecorderBackend {
   TripRecorderStorage _storage;
 
   /// Whether we can use the GPS.
-  GpsStatusProvider gpsStatusProvider;
+  GpsStatusNotifier gpsStatusProvider;
 
   /// The newly recorded trip.
   Trip _trip;
