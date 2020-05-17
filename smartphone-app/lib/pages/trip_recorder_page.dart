@@ -85,20 +85,19 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
 
   Widget mainPane(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.max, children: [
-      if (widget.mode == Mode.test)
-        Container(
-          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
-          child: Row(
-            children: [
-              Icon(Icons.help_outline, size: 30,),
-              Container(width: 5),
-              Flexible(
-                  //width: MediaQuery.of(context).size.width,
-                  child: Text('Vous pouvez utiliser ce mode pour découvrir l\'application, les données ne seront pas gardées sur le serveur.')
-              ),
-            ]
-          ),
+      Container(
+        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+        child: Row(
+          children: [
+            Icon(Icons.help_outline, size: 30,),
+            Container(width: 5),
+            Flexible(
+                //width: MediaQuery.of(context).size.width,
+                child: Text(_helpText(widget.mode))
+            ),
+          ]
         ),
+      ),
       Expanded(
           child: Consumer<GpsStatusNotifier>(builder: (context, status, _) {
         switch (status.value) {
@@ -197,12 +196,12 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
                   ButtonBar(
                     children: <Widget>[
                       RaisedButton(
-                        child: Text('Enregistrer ce trajet'),
+                        child: Text(_saveButtonText),
                         color: Theme.of(context).colorScheme.primary,
                         onPressed: () => saveDialog(context),
                       ),
                       OutlineButton(
-                        child: Text('Effacer ce trajet'),
+                        child: Text(_cancelButtonText),
                         onPressed: () => cancelDialog(context),
                       ),
                     ],
@@ -251,9 +250,19 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
           saveAndExit(context);
         });
     AlertDialog alert = AlertDialog(
-      title: Text("Confirmation"),
-      content: Text(
-          "Voulez-vous vraiment enregistrer ce trajet ? Les données seront transmises au server. Assurez-vous que le mode de transport est correctement renseigné."),
+      title: Row(children: [
+        Icon(widget.mode.iconData),
+        Container(width:5),
+        Text("Confirmation")
+      ]),
+      content: (widget.mode == Mode.test) ?
+      Text("Mode spécial pour tester l'application. Vous pouvez envoyer ces données, elles ne seront pas gardées par le serveur.")
+      : Text.rich(TextSpan(text:
+          "Voulez-vous transmettre les données de ce ",
+          children: [
+            TextSpan(text:"${widget.mode.text.toLowerCase()}", style: TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text:" ? \n\nLes données seront transmises au serveur. \n\nAssurez-vous que le mode de transport est correctement renseigné."),
+          ])),
       actions: [
         cancelButton,
         continueButton,
@@ -284,6 +293,15 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
     });
   }
 
+  String _helpText(Mode m) {
+    if (m == Mode.test)
+      return "Vous pouvez utiliser ce mode pour découvrir l'application, les données ne seront pas gardées sur le serveur.";
+    else
+      return 'À la fin de votre trajet, cliquez sur "$_saveButtonText" pour envoyer les données au serveur ou sur "$_cancelButtonText" pour effacer les données.';
+  }
+
+  final String _cancelButtonText = 'Annuler';
+  final String _saveButtonText = 'Enregistrer le trajet';
   final String iosNeedsGpsText = """
 # Attention
 

@@ -20,7 +20,7 @@ class TripSelectorPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Nouveau trajet'),
+        title: Text('Commencer un trajet'),
         actions: <Widget>[
           Padding(
               padding: EdgeInsets.only(right: 20.0),

@@ -6,7 +6,7 @@ extension ModeText on Mode {
   String get text {
     switch (this) {
       case Mode.test:
-        return "Juste pour tester";
+        return "Juste pour tester l'application";
       case Mode.walk:
         return "Trajet à pied";
       case Mode.run:
