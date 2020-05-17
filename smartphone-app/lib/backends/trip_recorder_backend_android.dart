@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:async/async.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:foreground_service/foreground_service.dart';
 
 import '../backends/message_handler.dart';
@@ -39,6 +41,9 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
   /// Whether foreground service's communication is setup.
   Completer _isCommunicationSetup;
 
+  /// Used to answer the pings from background isolate.
+  var _pingHandler = KeepAlivePing();
+
   /// Controller to output [LocationData] for the UI to consume.
   var outputController = StreamController<LocationData>.broadcast();
 
@@ -56,6 +61,7 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
   void dispose() async {
     _sendToIsolate({'method': 'TripRecorderBackend.dispose'});
     _gpsStatus.dispose(); // unregisters the wrapper's listeners.
+    _pingHandler.stop();
   }
 
   @override
@@ -89,12 +95,21 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
       'mode': tripMode.value,
     });
 
+
     return startResponse.future;
   }
 
   void _onIsolateMessage(dynamic data) async {
     print('[MainIsolate] Message received: $data');
     var message = data as Map;
+
+    var handlers = [_pingHandler, _gpsStatus];
+
+    for (var h in handlers) {
+      if (await h.handleMessage(message)) {
+        return;
+      }
+    }
 
     if (message['method'] == 'LocationData') {
       outputController.add(LocationData.parse(message['data']));
@@ -107,8 +122,6 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
     } else if (message['method'] == 'TripRecorderStorage.onNewTrip') {
       var trip = Trip.parse(message['trip']);
       onNewTrip(trip);
-    } else if (await _gpsStatus.handleMessage(message)) {
-      print('[MainIsolate] message handled by _gpsAuth');
     }
   }
 
@@ -136,10 +149,10 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
     bool ok = await super.start(m);
     if (ok) {
       subscription = locationStream().listen((locationData) {
-        ForegroundService.sendToPort({
-          'method': 'LocationData',
-          'data': locationData.serialize(),
-        });
+          ForegroundService.sendToPort({
+            'method': 'LocationData',
+            'data': locationData.serialize(),
+          });
       });
     } else {
       print('[IsolateTripRecorderBackend] Error: start() returned false');
@@ -149,6 +162,7 @@ class IsolateTripRecorderBackend extends TripRecorderBackendImpl
   }
   @override
   void dispose() {
+    print('[IsolateTripRecorderBackend] dispose()');
     onDispose();
     subscription?.cancel();
     super.dispose();
@@ -300,6 +314,47 @@ class IsolateGpsStatusProvider extends ValueNotifier<GpsStatus>
 
 //------------------------------------------------------------------------------
 
+class KeepAlivePing extends MessageHandler {
+  RestartableTimer killTimer;
+  Timer pingTimer;
+
+  KeepAlivePing();
+
+  void start({Function() killBackgroundIsolate}) async {
+    if (!await ForegroundService.isBackgroundIsolate) {
+      throw Exception('[KeepAlivePing] should be started in Background Isolate');
+    }
+
+    killTimer = RestartableTimer(Duration(seconds: 20), () {
+      killBackgroundIsolate();
+      pingTimer?.cancel();
+    });
+
+    pingTimer = Timer.periodic(Duration(seconds: 10), (timer) {
+      ForegroundService.sendToPort({'method': 'keepAlivePing'});
+    });
+  }
+
+  @override
+  Future<bool> handleMessage(Map message) async {
+    if (message['method'] == 'keepAlivePing') {
+      ForegroundService.sendToPort({
+        'methodResult': 'keepAlivePing'
+      });
+      return true;
+    } else if (message['methodResult'] == 'keepAlivePing') {
+      killTimer?.reset();
+      return true;
+    }
+    return false;
+  }
+
+  void stop() {
+    killTimer?.cancel();
+    pingTimer?.cancel();
+  }
+}
+
 /// Code to run in the Foreground Service's Isolate.
 class Isolate {
   /// Starts the foreground service.
@@ -307,8 +362,8 @@ class Isolate {
     if (!(await ForegroundService.foregroundServiceIsStarted())) {
       await ForegroundService.setServiceFunctionAsync(false);
       await setupForegroundServiceNotification();
-      await ForegroundService.startForegroundService(Isolate.run);
-      await ForegroundService.getWakeLock();
+      await ForegroundService.startForegroundService(Isolate.run, true);
+      //await ForegroundService.setContinueRunningAfterAppKilled(false);
     }
   }
 
@@ -330,8 +385,7 @@ class Isolate {
     ForegroundService.notification.setText('Trip recording started ($now)');
     TripRecorderBackendImpl.logPrefix = "Isolate:TripRecorderBackendImpl";
     GpsStatusNotifierImpl.logPrefix = "Isolate:GpsStatusNotifierImpl";
-
-
+    
     print('[Isolate] initializing storage');
     var storage = DataStore.instance;
     storage.onNewTrip = (Trip t) {
@@ -356,19 +410,39 @@ class Isolate {
     var backend = IsolateTripRecorderBackend(gpsStatusProvider, storage, providers);
     backend.onDispose = () => stopped.complete();
 
+    // We want to stop using the GPS as soon as the main Isolate dies
+    // to avoid "GPS leak". For that, ping MainIsolate regularly.
+    var ping = KeepAlivePing();
+    
     // Callback to process message, where most of the stuff happens.
     print('[Isolate] waiting for setupIsolateCommunication');
     await ForegroundService.setupIsolateCommunication(
-        (data) => Isolate.onMessageReceived(data, [backend, gpsStatusProvider])
+        (data) => Isolate.onMessageReceived(
+            data,
+            [ping, backend, gpsStatusProvider]
+        )
     );
     print('[Isolate] setupIsolateCommunication done.');
 
     // Tell the main isolate that we are ready to process messages.
     print('[Isolate] sending ForegroundServiceReady signal');
     ForegroundService.sendToPort({'method': 'ForegroundServiceReady'});
-    
+
+    ping.start(killBackgroundIsolate: () {
+      if (stopped.isCompleted) {
+        print('[Isolate] Error: keepAlivePing still running after Isolate terminated! Calling dispose now.');
+        ping.stop();
+      } else {
+        print('[Isolate] /!\\ Killing Isolate now.');
+        backend.cancel();
+        backend.dispose();
+      }
+    });
+
     /// Keeps the foreground service running until [stopped] completes.
     await stopped.future;
+    ping.stop();
+    
     // Note: objects should be disposed via the messaging system.
     print('[Isolate] --- stopped --- ');
     await ForegroundService.stopForegroundService();
