@@ -28,6 +28,9 @@ class TripData:
             filename = filename.split('/')[-1]
         if '.' in filename:
             filename = filename.split('.')[0]
+        if filename == 'geofences':
+            # No need to print an error for the geofences file.
+            return None
         parts = filename.split('_')
         if len(parts) != 4:
             logger().warning(f'TripData.parse: unable to parse filename: "{filename}"')

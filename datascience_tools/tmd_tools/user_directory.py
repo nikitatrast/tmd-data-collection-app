@@ -1,6 +1,11 @@
 from pathlib import Path
+import datetime
+import logging
 from . import trip_data as td
 from . import trip as T
+
+def logger():
+    return logging.getLogger('dataviz')
 
 class UserDirectory:
     def __init__(self, parent_path, uid, data):
@@ -36,6 +41,16 @@ class UserDirectory:
     def data_trips(self):
         test_modes = set(('exploration', 'test'))
         return [t for t in self.trips if t.mode not in test_modes and t.data]
-        
+
+    @property
+    def durations(self):
+        d = {}
+        for t in self.trips:
+            d.setdefault(t.mode, datetime.timedelta(0))
+            if t.duration.seconds < 0:
+                logger().error('Found negative duration for `{self}`, trip `{t}` has duration `{t.duration}`')
+            d[t.mode] += t.duration
+        return d
+
     def __repr__(self):
         return f'UserDirectory({self.uid[:4]}:{self.data["app_name"]})'

@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import datetime
 import pandas as pd
 from . import user_directory as ud
 
@@ -22,6 +23,30 @@ class DataDirectory:
     def existing_users(self):
         return [u for u in self.users if u.exists]
     
+    @property 
+    def durations(self):
+        d = {}
+        for u in self.existing_users:
+            for (mode, duration) in u.durations.items():
+                d.setdefault(mode, datetime.timedelta(0))
+                d[mode] += duration
+        return d
+
+    def print_durations(self):
+        #
+        def hours(tdelta):
+            """ converts timedelta object to number of hours. """
+            minutes = tdelta.seconds / 60
+            hours = minutes / 60
+            return hours + 24*tdelta.days
+        #
+        total_hours = 0
+        for (mode, duration) in self.durations.items():
+            if (mode != 'test') and (mode != 'exploration'):
+                total_hours += hours(duration)
+                print(f'{mode:10} {hours(duration):04.1f}h')
+        print(f'{"total":9} {total_hours:.1f}h')
+
     def get_by_uid(self, uid):
         return [ud.UserDirectory(self.path, u, data) for (u, data) in self.uids.items() if u.startswith(uid)]
 
