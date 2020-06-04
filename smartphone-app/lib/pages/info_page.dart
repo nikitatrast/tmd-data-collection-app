@@ -20,7 +20,7 @@ class InfoPage extends StatelessWidget {
         title: Text('Info'),
         actions: [
           IconButton(
-            icon: Icon(trip.mode.iconData),
+            icon: trip.mode.icon(),
             onPressed: null,
           )
         ],
@@ -31,7 +31,7 @@ class InfoPage extends StatelessWidget {
             ListTile(
                 title: Container(
                     padding: EdgeInsets.all(20),
-                    child: Center(child: Icon(trip.mode.iconData, size: 80))))
+                    child: Center(child: trip.mode.icon(size: 80))))
           ]..addAll(ListTile.divideTiles(context: context, tiles: [
               ListTile(
                 title: Text('Début: ' + _formatDate(trip.start)),

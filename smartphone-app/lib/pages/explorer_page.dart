@@ -150,7 +150,7 @@ class ExplorerPageState extends State<ExplorerPage> {
       content: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(item.mode.iconData),
+            item.mode.icon(),
             Text("  Le trajet sera envoyé au serveur  "),
             Icon(Icons.cloud_upload),
           ]

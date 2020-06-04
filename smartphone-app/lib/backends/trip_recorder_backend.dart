@@ -48,6 +48,11 @@ class TripRecorderBackendImpl extends TripRecorderBackend {
     return true;
   }
 
+  bool longEnough() {
+    var tripDuration = DateTime.now().difference(_trip.start).inSeconds;
+    return tripDuration > 30;
+  }
+
   void stop() {
     if (!_tripEnd.isCompleted) {
       _tripEnd.complete(DateTime.now());

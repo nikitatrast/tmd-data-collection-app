@@ -55,7 +55,7 @@ class _UidTileState extends State<UidTile> {
                       onTap: () {
                         taps = taps + 1;
                         print('[UidTile] taps $taps');
-                        if (taps == 4) {
+                        if (taps == 10) {
                           taps = 0;
                           confirmationDialog(context, store);
                         } else if (t == null) {

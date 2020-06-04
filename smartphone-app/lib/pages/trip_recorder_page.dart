@@ -15,6 +15,7 @@ import '../widgets/map_widget.dart';
 abstract class TripRecorderBackend {
   Future<bool> start(Mode tripMode);
   Future<bool> save();
+  bool longEnough();
   void cancel();
   void dispose();
   void toBackground() {}
@@ -124,7 +125,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-        Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
+        Expanded(child: Center(child: widget.mode.icon(size:200))),
         Container(
             padding: EdgeInsets.only(left: 10, top: 20, bottom: 20),
             child: Text(
@@ -152,7 +153,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
           mainAxisSize: MainAxisSize.max,
           //crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: Center(child: Icon(widget.mode.iconData, size: 200))),
+            Expanded(child: Center(child: widget.mode.icon(size:200))),
             Container(
                 padding: EdgeInsets.only(left: 10, top: 20, bottom: 20),
                 child: Text(
@@ -179,7 +180,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
             appBar: AppBar(
               automaticallyImplyLeading: false,
               title: Row(children: [
-                Icon(widget.mode.iconData),
+                widget.mode.icon(),
                 Container(
                     padding: EdgeInsets.only(left: 10),
                     child: Text('Enregistrement en cours'))
@@ -198,7 +199,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
                       RaisedButton(
                         child: Text(_saveButtonText),
                         color: Theme.of(context).colorScheme.primary,
-                        onPressed: () => saveDialog(context),
+                        onPressed: () => (_longEnough) ? saveDialog(context) : tooSoonDialog(context),
                       ),
                       OutlineButton(
                         child: Text(_cancelButtonText),
@@ -207,6 +208,11 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
                     ],
                   )
                 ])));
+  }
+
+  bool get _longEnough {
+    var value = (widget.mode == Mode.test) || recorder.longEnough();
+    return value;
   }
 
   void cancelDialog(BuildContext context) {
@@ -238,6 +244,28 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
     );
   }
 
+  void tooSoonDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("L'enregistrement a déjà commencé !"),
+        content: Text.rich(
+            TextSpan(children: [
+              TextSpan(text:"Le trajet est trop court pour être envoyé au serveur.\n\n"),
+              TextSpan(text:"Mode: "),
+              TextSpan(text:"${widget.mode.text.toLowerCase()}", style: TextStyle(fontWeight: FontWeight.bold))
+            ])
+        ),
+        actions: <Widget>[
+          FlatButton(
+              child:Text('ok'),
+              onPressed: () => Navigator.of(context).pop(),
+          )
+        ],
+      )
+    );
+  }
+
   void saveDialog(BuildContext context) {
     Widget cancelButton = FlatButton(
       child: Text("Non"),
@@ -251,7 +279,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
         });
     AlertDialog alert = AlertDialog(
       title: Row(children: [
-        Icon(widget.mode.iconData),
+        widget.mode.icon(),
         Container(width:5),
         Text("Confirmation")
       ]),
@@ -301,7 +329,7 @@ class TripRecorderPageState extends State<TripRecorderPage> with WidgetsBindingO
   }
 
   final String _cancelButtonText = 'Annuler';
-  final String _saveButtonText = 'Enregistrer le trajet';
+  final String _saveButtonText = 'Fin du trajet';
   final String iosNeedsGpsText = """
 # Attention
 

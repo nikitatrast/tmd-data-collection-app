@@ -58,9 +58,10 @@ class GpsStatusNotifierImpl extends ValueNotifier<GpsStatus> implements GpsStatu
     }
     else {
       if (_userPref.value == true) {
-        var sysValue = requestAuth ? await _systemPref.request(): await _systemPref.updateStatus();
+        var sysValue = (requestAuth==true) ? await _systemPref.request(): await _systemPref.updateStatus();
         print('$logPrefix._update => sysValue = $sysValue, userPref = ${_userPref.value}');
-        await _update(sysValue, requestAuth: false);
+        if (sysValue != null)
+          await _update(sysValue, requestAuth: false);
       } else {
         super.value = GpsStatus.userDisabled;
       }

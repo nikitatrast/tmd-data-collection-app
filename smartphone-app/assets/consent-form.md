@@ -12,6 +12,7 @@ Institution : École Polytechnique Fédérale de Lausanne, Route Cantonale, 1015
 Comment nous contacter : par e-mail à l’adresse julien.harbulot@epfl.ch
 
 ## Contexte
+
 Dans de nombreuses applications, l'expérience utilisateur peut être améliorée en détectant le mode de transport courant, c'est à dire si l'utilisateur est en train de se déplacer à pied, en vélo, en voiture, etc. Par exemple, une application de réalité augmentée (comme Pokemon GO) pourra faire monter le joueur automatiquement dans une voiture ou un vélo si ce mode de transport est détecté. Ou encore, une application de fitness comptera une dépense énergétique plus grande lors d'un trajet à pied que lors d'un trajet en voiture.
 
 Pour détecter automatiquement le mode de transport, une intelligence artificielle (IA) est utilisée pour analyser les données des capteurs du smartphone, comme par exemple celles de l'accéléromètre ou du GPS. Avant de pouvoir analyser de nouvelles données, l'IA doit être entrainée avec des exemples de trajet dont on connait le mode de transport avec précision. 
@@ -44,17 +45,16 @@ De plus, les données suivantes sont accessibles aux chercheurs mais ne seront p
 
 - certaines informations utilisées pour établir la connexion au serveur comme une adresse IP ;
 - la liste de vos zones privées ;
-- votre nom et prénom, nécessaires pour obtenir votre consentement à participer à cette étude.
+- le pseudonyme que vous avez fourni pour pouvoir demander la suppression de vos données.
 
-Aucune autre donnée n'est collectée. En particulier, votre numéro de téléphone, votre âge, votre genre ou toute autre information personnelle ne sera ni collectée ni publiée.
+Aucune autre donnée n'est collectée. En particulier, votre numéro de téléphone, votre nom, votre âge, votre genre ou toute autre information personnelle ne sera ni collectée ni publiée.
 
 ## Suppression des données
 
-Vous pouvez demander la suppression des données que vous avez enregistrées en écrivant par e-mail au chercheur principal. Pour cela, veillez à bien renseigner votre nom/prénom dans le formulaire de consentement ci dessous. Une justification d'identité sera demandée avant la suppression des données.
-
-Afin de protéger votre identité, un numéro aléatoire (UID) sera généré par le serveur et associé à vos trajets. Une table de correspondance entre votre nom/prénom et ce numéro aléatoire sera stockée de façon sécurisée et encryptée sur notre serveur. Cette table est uniquement accessible par le chercheur principal responsable de la collecte de données et ne sera jamais rendue publique. Lorsque vous demandez la suppression des données transmises, le chercheur accèdera à cette table pour retrouver le numéro UID et supprimera toutes les données qui y sont associées (vos trajet, vos zones privées, votre nom/prénom, etc.).
+Vous pouvez demander la suppression des données que vous avez enregistrées en écrivant par e-mail au chercheur principal. Vous devrez fournir le numéro ID de cette application (accessible depuis la page de réglage) ainsi qu'un pseudonyme qui vous sera demandé à la fin de ce formulaire.
 
 ## Fonctionnement de l'application
+
 Lors d'un trajet dans lequel n'intervient qu'un seul mode de transport (par exemple, un trajet en voiture), ouvrez l'application et sélectionnez le mode de transport correspondant. Cela démarrera automatiquement la collecte des données. À la fin de votre de trajet et *avant de changer de mode de transport* (par exemple, avant de sortir de la voiture), enregistrez votre trajet pour terminer la collecte, valider les données et les transmettre au serveur. En cas d'erreur ou si vous changez d'avis, vous avez aussi la possibilité d'effacer le trajet au lieu de l'enregistrer.
 
 Dans la page de gestion des préférences, vous pouvez paramétrer le fonctionnement de l'application. Par exemple, pour préserver votre abonnement réseau, vous pouvez choisir de ne synchroniser les données avec le serveur seulement lorsqu'une connexion wifi est disponible.
@@ -92,4 +92,4 @@ Déclaration du participant. Je certifie :
 - en cas de doute, je vais contacter le chercheur directement.
 
 
-Pour donner mon consentement, je signe électroniquement ce formulaire en saisissant mon nom et mon prénom dans le champs de texte ci-dessous et je clique sur le bouton "J'accepte". En cas de non-consentement, je désinstalle l'application.
+Pour donner mon consentement, je signe électroniquement ce formulaire en cliquant sur le bouton "J'accepte". En cas de non-consentement, je désinstalle l'application.

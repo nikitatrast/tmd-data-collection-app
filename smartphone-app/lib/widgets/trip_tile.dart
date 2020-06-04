@@ -18,7 +18,7 @@ class TripTile extends StatelessWidget {
   }
 
   static Widget leadingIcon(Trip item, {double size = 40}) {
-    return Icon(item.mode.iconData, size: size);
+    return item.mode.icon(size:size);
   }
   
   static Widget title(Trip item) {

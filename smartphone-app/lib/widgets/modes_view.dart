@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart' show Icons, IconData;
+import 'package:flutter/material.dart' show AssetImage, Icon, IconData, Icons, ImageIcon;
 import '../models.dart' show Mode, ModeValue;
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/my_flutter_app_icons.dart';
 
 extension ModeText on Mode {
   /// Text used to display this [Mode] to the user.
@@ -9,6 +12,8 @@ extension ModeText on Mode {
         return "Juste pour tester l'application";
       case Mode.walk:
         return "Trajet à pied";
+      case Mode.hike:
+        return "Randonnée";
       case Mode.run:
         return "Trajet en courant";
       case Mode.bike:
@@ -19,6 +24,8 @@ extension ModeText on Mode {
         return "Trajet en voiture";
       case Mode.bus:
         return "Trajet en bus / car";
+      case Mode.minibus:
+        return "Trajet en minibus";
       case Mode.metro:
         return "Trajet en métro / tram";
       case Mode.train:
@@ -49,26 +56,30 @@ extension ModeRoute on Mode {
 
 extension ModeIcon on Mode {
   /// [IconData] to display to the user for this [Mode].
-  IconData get iconData {
+  dynamic icon({double size = 24.0}) {
     switch (this) {
       case Mode.test:
-        return Icons.weekend;
+        return Icon(Icons.weekend, size: size);
       case Mode.walk:
-        return Icons.directions_walk;
+        return Icon(Icons.directions_walk, size: size);
+      case Mode.hike:
+        return Icon(MyFlutterApp.hike, size: size);
       case Mode.run:
-        return Icons.directions_run;
+        return Icon(Icons.directions_run, size: size);
       case Mode.bike:
-        return Icons.directions_bike;
+        return Icon(Icons.directions_bike, size: size);
       case Mode.motorcycle:
-        return Icons.motorcycle;
+        return Icon(Icons.motorcycle, size: size);
       case Mode.car:
-        return Icons.directions_car;
+        return Icon(Icons.directions_car, size: size);
       case Mode.bus:
-        return Icons.airport_shuttle;
+        return Icon(MyFlutterApp.bus, size:size-3); //Icon(Icons.airport_shuttle, size: size);
+      case Mode.minibus:
+        return Icon(Icons.airport_shuttle, size: size);
       case Mode.metro:
-        return Icons.subway;
+        return Icon(Icons.subway, size: size);
       case Mode.train:
-        return Icons.train;
+        return Icon(Icons.train, size: size);
       default:
         throw Exception("Not implemented");
     }

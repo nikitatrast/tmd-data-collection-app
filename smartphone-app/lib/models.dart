@@ -3,11 +3,13 @@ enum Mode {
   /// Test-mode to notify the server that this trip should be ignored.
   test,
   walk,
+  hike,
   run,
   bike,
   motorcycle,
   car,
   bus,
+  minibus,
   metro,
   train
 }

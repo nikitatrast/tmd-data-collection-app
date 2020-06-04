@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tmd/widgets/sync_status_widget.dart';
 import '../models.dart' show Mode;
 import '../widgets/modes_view.dart';
 
@@ -31,14 +32,27 @@ class TripSelectorPage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: Column(
         children: <Widget>[
-          for (var m in modes)
-            ListTile(
-              leading: Icon(m.iconData, size: 30),
-              title: Text(m.text),
-              onTap: () => modeSelected(m),
+          Flexible(
+            child: ListView(
+              children: <Widget>[
+                for (var m in modes)
+                  ListTile(
+                    leading: m.icon(size: 30),
+                    title: Text(m.text),
+                    onTap: () => modeSelected(m),
+                  )
+              ],
+            ),
+          ),
+          Container(
+            color: Colors.black87,
+            child: Theme(
+              data: ThemeData.dark(),
+              child: SyncStatusWidget(hideFinished: true, dense: true)
             )
+          ),
         ],
       ),
     );

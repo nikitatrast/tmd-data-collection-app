@@ -204,11 +204,11 @@ class UploadManager {
 
   /// See [_onUpdate()].
   Future<SyncStatus> _onUpdateHelper(String trigger) async {
-    if (_pendingUploads.isEmpty && _geoFenceStore.geoFencesUploaded != false) {
+    //if (_pendingUploads.isEmpty && _geoFenceStore.geoFencesUploaded != false) {
       // note: _geoFenceStore.geoFencesUploaded can be `null` hence the test
       //       for `false`.
-      return SyncStatus.done;
-    }
+    //  return SyncStatus.done;
+    //}
 
     // if network has gone off, cancel uploading
     if (_networkStatus.value != NetworkStatus.online) {
@@ -216,6 +216,10 @@ class UploadManager {
       for (var status in await _notifiers.values) {
         if (status.value == UploadStatus.uploading)
           status.value = UploadStatus.pending;
+      }
+      if (_geoFenceStore.geoFencesUploaded != false && _pendingUploads.isEmpty) {
+        // fine, we're done anyways
+        return SyncStatus.done;
       }
       return SyncStatus.awaitingNetwork;
     }
@@ -235,8 +239,7 @@ class UploadManager {
           }).catchError((e) => _geoFenceStore.setGeoFencesUploaded(false));
           return SyncStatus.uploading;
         }
-
-        if (_pendingUploads.isNotEmpty) {
+        else if (_pendingUploads.isNotEmpty) {
           print(
               '[UploadManager] Processing next pending request (trigger: $trigger)');
           var pendingList = List.from(_pendingUploads);
@@ -247,10 +250,20 @@ class UploadManager {
               return SyncStatus.uploading;
             }
           }
+          print('[UploadManager] incoherent state: _pendingUploads.isNotEmpty but no _notifiers.value are pending...');
+          return SyncStatus.uploading;
         }
-        return SyncStatus.done;
+        else {
+          return SyncStatus.done;
+        }
+        break;
 
       case UploaderStatus.offline:
+        // geoFencesUploaded can be null
+        if (_geoFenceStore.geoFencesUploaded != false && _pendingUploads.isEmpty) {
+          // fine, we're done anyways
+          return SyncStatus.done;
+        }
         if (_autoRestartUploader == null) {
           print('[UploadManager] Uploader offline,'
               ' starting now & scheduling auto-start in 1mn (trigger: $trigger)');

@@ -50,6 +50,9 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
   /// Called when a new trip is saved.
   final void Function(Trip) onNewTrip;
 
+  /// Used to know if the trip is long enough to be saved
+  DateTime _startedDate;
+
   TripRecorderBackendAndroidImpl(this._gpsStatusDelegate, this.onNewTrip);
 
   @override
@@ -83,6 +86,7 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
 
   @override
   Future<bool> start(Mode tripMode) async {
+    _startedDate = DateTime.now();
     startResponse = Completer();
     _isCommunicationSetup = Completer();
     _gpsStatus = ForwardingGpsStatusProvider(_gpsStatusDelegate, _sendToIsolate);
@@ -95,8 +99,11 @@ class TripRecorderBackendAndroidImpl extends TripRecorderBackend {
       'mode': tripMode.value,
     });
 
-
     return startResponse.future;
+  }
+
+  bool longEnough() {
+    return DateTime.now().difference(_startedDate).inSeconds > 30;
   }
 
   void _onIsolateMessage(dynamic data) async {
@@ -334,6 +341,7 @@ class KeepAlivePing extends MessageHandler {
       ForegroundService.sendToPort({'method': 'keepAlivePing'});
     });
   }
+
 
   @override
   Future<bool> handleMessage(Map message) async {
