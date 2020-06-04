@@ -104,13 +104,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                     .copyWith(textScaleFactor: textScale),
                             data: snapshot.data,
                           )),
+                      Container(height: 10),
+                      Text('Pour pouvoir demander la suppression de vos données, entrez un pseudonyme dans le champs ci dessous. Il faudra fournir ce pseudonyme pour supprimer vos données.'),
                       Container(
                           padding: EdgeInsets.only(left: 10, right: 10),
                           child: TextField(
                               controller: controller,
                               focusNode: textFocusNode,
                               decoration: InputDecoration(
-                                  labelText: 'Nom Prénom'))),
+                                  labelText: 'Pseudonyme'))),
                       ButtonBar(children: [
                         RaisedButton(
                           child: Text("J'accepte"),
