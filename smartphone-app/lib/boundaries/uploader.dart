@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data' show ByteBuffer, Uint8List;
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/adapter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
@@ -343,6 +344,12 @@ class Uploader {
     });
   }
 
+  String anonymize(String stuff) {
+    var bytes = utf8.encode(stuff);
+    var digest = sha1.convert(bytes);
+    return '$digest';
+  }
+
   /// Platform-specific information about the smartphone.
   Future<String> get _deviceInfo async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -350,11 +357,11 @@ class Uploader {
       AndroidDeviceInfo info = await deviceInfo.androidInfo;
       return jsonEncode({
         'platform':'android',
-        'androidId':info.androidId,
+        'deviceId': anonymize(info.androidId),
         'board':info.board,
         'brand':info.brand,
         'device':info.device,
-        'host':info.host,
+        //'host':info.host,
         'physical': info.isPhysicalDevice,
         'manufacturer': info.manufacturer,
         'model': info.model,
@@ -367,10 +374,10 @@ class Uploader {
       IosDeviceInfo info = await deviceInfo.iosInfo;
       return jsonEncode({
         'platform':'ios',
-        'uuid': info.identifierForVendor,
+        'deviceId': anonymize(info.identifierForVendor),
         'physical': info.isPhysicalDevice,
         'model': info.model,
-        'name': info.name,
+        //'name': info.name,
         'system': info.systemName,
         'systemVersion': info.systemVersion,
         'machine': info.utsname.machine,
