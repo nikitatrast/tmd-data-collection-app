@@ -4,7 +4,7 @@ from datetime import datetime
 import logging
 import pandas as pd
 from . import utils
-
+import numpy as np
 
 def logger():
     return logging.getLogger('dataviz')
@@ -73,7 +73,11 @@ class TripData:
         }
         col_names = names.get(self.sensor)
         usecols = range(len(col_names)) if col_names else None
-        return pd.read_csv(self.filepath, names=col_names, usecols=usecols, index_col=0)
+        df = pd.read_csv(self.filepath, names=col_names, usecols=usecols, index_col=0)
+        df.index = pd.to_datetime(df.index, unit='ms')
+        if self.sensor in ['accelerometer', 'gyroscope']:
+            df['norm'] = df.apply(np.linalg.norm, axis=1)
+        return df
 
     def __lt__(self, other):
         return self.start < other.start or (self.start == other.start and self.sensor < other.sensor)

@@ -23,6 +23,10 @@ class DataDirectory:
     def existing_users(self):
         return [u for u in self.users if u.exists]
     
+    @property
+    def physical_users(self):
+        return [u for u in self.existing_users if u.data.get('physical', True)]
+
     @property 
     def durations(self):
         d = {}
@@ -55,7 +59,13 @@ class DataDirectory:
 
     def __repr__(self):
         if self.path.is_dir():
-            n_files = sum(1 for _ in self.path.iterdir())
+            n_files = len(self.physical_users)
             return f"DataDirectory({n_files} users)"
         else:
             return f"DataDirectory(error)"
+
+    def delete_emulators(self):
+        for user in self.existing_users:
+            if not user.physical:
+                user.delete()
+        return self

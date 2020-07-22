@@ -3,6 +3,8 @@ import datetime
 import logging
 from . import trip_data as td
 from . import trip as T
+import shutil
+import numpy as np
 
 def logger():
     return logging.getLogger('dataviz')
@@ -28,14 +30,10 @@ class UserDirectory:
             trips = {key(t): T.Trip(t.start, t.end, t.mode) for t in trips_data}
             for t in trips_data:
                 trips[key(t)].data[t.sensor] = t
+            trips = {k:v for (k,v) in sorted(trips.items())}
             return list(trips.values())
-            
         finally:
             pass
-    
-    @property
-    def sorted_trips(self):
-        return list(sorted(self.trips))
     
     @property
     def data_trips(self):
@@ -54,3 +52,10 @@ class UserDirectory:
 
     def __repr__(self):
         return f'UserDirectory({self.uid[:4]}:{self.data["app_name"]})'
+
+    @property
+    def physical(self):
+        return self.data.get('physical')
+
+    def delete(self):
+        self.path.replace(self.path.with_suffix('.deleted'))
