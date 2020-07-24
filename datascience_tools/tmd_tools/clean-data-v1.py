@@ -1,18 +1,16 @@
 #!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 import numpy as np
 import pandas as pd
 import datetime
-
 import pickle
 
-# ## Iter parts with non-aligned index
-
-# In[2]:
+from pathlib import Path
+from .data_directory import DataDirectory
+import matplotlib.pyplot as plt
+import gc
+from tqdm.auto import tqdm
+from datetime import timedelta
 
 
 def iter_parts(df, masks_df):
@@ -57,9 +55,6 @@ def iter_parts(df, masks_df):
             yield None, wrap(part)
 
 
-# In[3]:
-
-
 def filter_groups(mask, min_length):
     """
     Drops groups of consecutive True values in mask whose length are less than min_length.
@@ -76,9 +71,6 @@ def filter_groups(mask, min_length):
     return mask
 
 
-# In[4]:
-
-
 def get_data(trip):
     adf = trip.data['accelerometer'].df
     #adf.index = pd.to_datetime(adf.index, unit='ms')
@@ -90,14 +82,12 @@ def get_data(trip):
         gdf = None
     else:
         gdf = trip.data['gps'].df
+        gdf = gdf[(adf.first_valid_index() <= gdf.index) & (gdf.index <= adf.last_valid_index())]
         #gdf.index = pd.to_datetime(gdf.index, unit='ms')
         gdf.dropna(inplace=True)
         gdf = gdf.groupby(gdf.index).first()
 
     return adf, gdf
-
-
-# In[5]:
 
 
 def plot_trip(title, adf, speed, masks):
@@ -122,16 +112,10 @@ def plot_trip(title, adf, speed, masks):
     return fig
 
 
-# In[6]:
-
-
 def fig_title(trip):
     title = str(trip.data['accelerometer'].filepath)
     title = title[title.rfind('/', 0, title.rfind('/'))+1:title.rfind('_', 0, title.rfind('_'))]
     return title
-
-
-# In[7]:
 
 
 def speed_threshold_for(mode):
@@ -143,17 +127,11 @@ def speed_threshold_for(mode):
         return 2
 
 
-# In[8]:
-
-
 def fig_output_filename(trip, plot_dir, ext='.svg'):
     fp = trip.data['accelerometer'].filepath
     title = f'{fp.relative_to(fp.parent.parent)}'
     path = (plot_dir / trip.mode / title.replace('/', '_')).with_suffix(ext)
     return path
-
-
-# In[9]:
 
 
 def write_fig(trip, adf, speed, color_masks, plot_dir):
@@ -162,9 +140,6 @@ def write_fig(trip, adf, speed, color_masks, plot_dir):
     path.parent.mkdir(exist_ok=True, parents=True)
     fig.savefig(path)
     plt.close(fig)
-
-
-# In[10]:
 
 
 def write_segments(trip, adf, mode_masks, output_dir):
@@ -181,38 +156,50 @@ def write_segments(trip, adf, mode_masks, output_dir):
         part.to_csv(output_path, index=False)
 
 
-# In[11]:
+def to_ms(minutes):
+    return 60*1000*minutes
+
+
+def record_skipped_trip(trip, reason='No GPS data'):
+    fp = trip.data['accelerometer'].filepath
+    fp = fp.relative_to(fp.parent.parent)
+    with open(no_gps_trips_file, 'a') as f:
+        f.write(str(fp))
+    tqdm.write(f'{reason} for {str(fp)}')
 
 
 def write_trip(trip, plot_dir, output_dir, no_gps_trips_file):
     if fig_output_filename(trip, plot_dir, ext='.png').exists():
         return
+    
     if 'gps' not in trip.data:
-        fp = trip.data['accelerometer'].filepath
-        fp = fp.relative_to(fp.parent.parent)
-        with open(no_gps_trips_file, 'w') as f:
-            f.write(str(fp))
-    else:
-        adf, gdf = get_data(trip)
-        speed = gdf.speed.resample('1s').first().fillna(-1)
+        record_skipped_trip(trip)
+        return
+    
+    adf, gdf = get_data(trip)
+    speed = gdf.speed[gdf.speed.first_valid_index(): gdf.speed.last_valid_index()]
+    if np.all(speed.fillna(-1) < 0):
+        record_skipped_trip(trip, 'No speed data')
+        return 
 
-        thr = speed_threshold_for(trip.mode)
+    speed = gdf.speed.resample('1s').first().fillna(-1)
+    thr = speed_threshold_for(trip.mode)
 
-        still_mask = filter_groups(mask=(np.abs(speed) < 0.02), min_length=30)
-        remove_mask = filter_groups(mask=(speed < thr), min_length=2)
-        color_masks = {'C1': still_mask, 'black': remove_mask,}
-        mode_masks = {'still': still_mask, 'null': remove_mask,}
+    remove_endpoints = ( adf.index < adf.first_valid_index() + timedelta(minutes=1)) | (adf.last_valid_index() - timedelta(minutes=1) < adf.index)
+    remove_endpoints = pd.Series(remove_endpoints, index=adf.index)
+    still_mask = filter_groups(mask=(np.abs(speed) < 0.02), min_length=30)
+    threshold_mask = filter_groups(mask=(speed < thr), min_length=2)
+    color_masks = {'red': remove_endpoints, 'C1': still_mask, 'black': threshold_mask,}
+    mode_masks = {'endpoints': remove_endpoints, 'still': still_mask, 'null': threshold_mask,}
 
-        write_segments(trip, adf, mode_masks, output_dir)
-        try:
-            write_fig(trip, adf, speed, color_masks, plot_dir)
-        except Exception as e:
-            print(fig_output_filename(trip, plot_dir), e)
-
-# In[12]:
+    write_segments(trip, adf, mode_masks, output_dir)
+    try:
+        write_fig(trip, adf, speed, color_masks, plot_dir)
+    except Exception as e:
+        print('During plot function:', fig_output_filename(trip, plot_dir), e)
 
 
-def get_data_trips(min_minutes=5):
+def get_data_trips(data_dir, min_minutes=5):
     data_trips = []
     for user in data_dir.physical_users:
         if user.data_trips:
@@ -221,78 +208,47 @@ def get_data_trips(min_minutes=5):
     return data_trips
 
 
-# ## Test with real data
+if __name__=='__main__':
+    import click
 
-# In[13]:
+    @click.command()
+    @click.argument('input_dir')
+    @click.argument('output_dir')
+    def main(input_dir, output_dir):
+        datadir = Path(input_dir)  # '/home/julien/data_collection_app/server/app/data'
+        output_dir  = Path(output_dir)  # './data-v3'
+        
+        data_dir = DataDirectory(datadir)
+        plot_dir = plot_dir = output_dir / 'plots'
+        output_dir = output_dir / 'data'
+        no_gps_trips_file = output_dir / 'to_handle.txt'
+        errors_path = output_dir / 'errors.pkl'
 
+        errors = []
 
-from pathlib import Path
-import tmd_tools as tmd
-import matplotlib.pyplot as plt
-import gc
-from tqdm.auto import tqdm
-#%matplotlib inline
+        try:
+            with open(errors_path, 'rb') as f:
+                errors = pickle.load(f)
+                print(f'Errors list of length {len(errors)} loaded from previous run')
+        except:
+            print('Unable to load errors from previous run, starting with empty list')
+            pass
 
+        trips = get_data_trips(data_dir)
+        trips = tqdm(trips, miniters=1)
+        for trip in trips:
+            try:
+                trips.set_description(fig_title(trip))
+                write_trip(trip, plot_dir, output_dir, no_gps_trips_file)
+                gc.collect()
+            except Exception as e:
+                error_data = (f'{type(e)} - {e}', str(trip.data['accelerometer'].filepath))
+                tqdm.write(f'{error_data}')
+                errors.append(error_data)
+                if not isinstance(e, UnicodeDecodeError):
+                    raise
 
-# In[14]:
+        with open(errors_path, 'wb') as f:
+            pickle.dump(errors, f)
 
-
-datadir = Path('/home/julien/data_collection_app/server/app/data')
-data_dir = tmd.DataDirectory(datadir)
-
-plot_dir = plot_dir = Path('./data/plots_v2')
-output_dir = Path('./output')
-no_gps_trips_file = output_dir / 'to_handle.txt'
-
-user = data_dir.get_by_uid('e631')[0]
-trip = user.trips[15]
-
-
-# In[15]:
-
-
-#import shutil
-#try:
-#    shutil.rmtree(plot_dir)
-#    shutil.rmtree(output_dir)
-#except:
-#    pass
-
-
-# In[16]:
-
-
-trip
-
-
-# In[17]:
-
-
-#write_trip(trip, plot_dir, output_dir, no_gps_trips_file)
-
-
-# In[18]:
-
-
-trips = get_data_trips()
-trips = tqdm(trips, miniters=1)
-errors = []
-for trip in trips:
-    try:
-        trips.set_description(fig_title(trip))
-        write_trip(trip, plot_dir, output_dir, no_gps_trips_file)
-        gc.collect()
-    except Exception as e:
-        errors.append((f'{type(e)} - {e}', str(trip.data['accelerometer'].filepath)))
-        if not isinstance(e, UnicodeDecodeError):
-            raise
-
-with open('errors.pkl', 'wb') as f:
-    pickle.dump(errors, f)
-
-# In[ ]:
-
-
-
-
-
+    main()
